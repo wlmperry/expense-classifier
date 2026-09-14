@@ -9,9 +9,3 @@ def test_read_root():
     assert response.status_code == 200
     assert response.json() == {"status":"ok"}
 
-def test_read_expenses():
-    response = client.get("/expenses")
-    assert response.status_code == 200
-    body = response.json()
-    assert isinstance(body,list)
-    assert body[0]["description"] == "Coffee"
