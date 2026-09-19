@@ -1,6 +1,6 @@
 # Development
 
-**The initial FastAPI backend foundation has been established; frontend application code has not yet been added.** See Backend setup below for the install, run, and test commands that have been verified. Migration commands will be documented here once persistence work lands. This file records what is established, not what is assumed.
+**The initial FastAPI backend foundation has been established, and a PostgreSQL/SQLAlchemy/Alembic persistence foundation now exists; frontend application code has not yet been added.** See Backend setup and Database setup below for the install, run, and test commands that have been verified. This file records what is established, not what is assumed.
 
 ## Prerequisites
 
@@ -36,7 +36,12 @@ Whenever you write a command down -- in a document, an Issue, or a pull request 
 
 **Repository location under WSL.** If you develop in WSL, keeping the clone inside the Linux filesystem -- under your home directory rather than on a mounted Windows drive -- is recommended, because file access across the mount boundary is noticeably slower. This is a recommendation, not a requirement.
 
-**PostgreSQL** may run on the Windows host or inside WSL, depending on the developer's environment. The team has not yet standardized a single local database setup. When setup instructions are added, document the supported configurations and the connection details each one requires rather than assuming every developer runs PostgreSQL in the same place.
+**PostgreSQL** may run on the Windows host or inside WSL, depending on the developer's environment. The team has not yet standardized a single local database setup; the steps below have been verified against a PostgreSQL 18 server running inside WSL2/Ubuntu. If you run PostgreSQL elsewhere (Windows host, another WSL distro, or another local instance), the same `DATABASE_URL` configuration mechanism applies, but the connection details and server installation/startup commands may differ.
+
+**Setting an environment variable for one command** differs by shell, which matters if you need to override `DATABASE_URL` without editing `.env`:
+
+- Windows PowerShell -- `$env:DATABASE_URL = "..."`
+- WSL and Linux shells -- `DATABASE_URL="..." <command>` or `export DATABASE_URL="..."`
 
 ## Secrets and local configuration
 
@@ -81,11 +86,40 @@ Run the linter:
 ruff check .
 ```
 
+## Database setup (PostgreSQL / SQLAlchemy / Alembic)
+
+This establishes the persistence foundation only -- there is no Expense table or model yet. `python -m pytest` above does not require a database connection and stays independent of any local PostgreSQL setup.
+
+1. Have a running local PostgreSQL server with a database and role the application can use. These steps were verified against PostgreSQL 18 running inside WSL2/Ubuntu, using an `expense_classifier_dev` database and an `expense_classifier` role as the documented local-development convention. Other local setups can use different names, hosts, and credentials -- only `DATABASE_URL` needs to point at them.
+2. Copy `.env.example` to `.env` and set `DATABASE_URL` to your connection string:
+
+   ```
+   DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>:5432/<database>
+   ```
+
+   `.env` is gitignored and must never be committed.
+3. Install dependencies (`pip install -r requirements.txt`) -- this pulls in SQLAlchemy, Alembic, and the `psycopg` (v3) PostgreSQL driver.
+4. Verify SQLAlchemy can actually connect and query the database:
+
+   ```
+   python -c "from sqlalchemy import text; from app.database import engine; conn = engine.connect(); print(conn.execute(text('SELECT 1')).scalar()); conn.close()"
+   ```
+
+   This should print `1`. Constructing the engine alone does not prove connectivity -- this runs a real query.
+5. Verify Alembic is wired to the same configuration and can reach the database:
+
+   ```
+   alembic current
+   alembic upgrade head
+   ```
+
+   This reads `DATABASE_URL` through `app/database.py` (see `alembic/env.py`) rather than a hard-coded connection string in `alembic.ini`. At this baseline, with no migration revisions written yet, `alembic current` reports no application revision -- that is expected, not an error. Running `alembic upgrade head` against a fresh database at this baseline creates Alembic's own empty `alembic_version` tracking table (used to record which revision has been applied) but makes no application schema changes; it is a real database write, not a pure no-op.
+
+Alembic is initialized with an `alembic/versions/` directory that contains no migration revision files yet. The first application/schema migration (the Expense table) belongs to Issue #12, not this persistence bootstrap.
+
 ## Not established yet
 
 These will be documented here once implementation work settles them:
 
-- configuration variable names, ports, and database names
 - JavaScript package-management conventions
 - frontend testing and linting tooling
-- PostgreSQL driver and connection configuration
