@@ -1,6 +1,6 @@
 # Development
 
-**There is no application code in this repository yet.** Setup today is: clone it and read the docs. Install, run, migration, and test commands will be documented here as each one actually lands. This file records what is established, not what is assumed.
+**The initial FastAPI backend foundation has been established; frontend application code has not yet been added.** See Backend setup below for the install, run, and test commands that have been verified. Migration commands will be documented here once persistence work lands. This file records what is established, not what is assumed.
 
 ## Prerequisites
 
@@ -42,12 +42,50 @@ Whenever you write a command down -- in a document, an Issue, or a pull request 
 
 Never commit secrets, credentials, `.env` contents, or real financial data. `.env` is already ignored by `.gitignore`. This repository is public -- treat anything committed to it as published.
 
+## Backend setup (Python / FastAPI)
+
+From the repository root:
+
+```
+python -m venv .venv
+```
+
+Activate it:
+- Windows PowerShell -- `.venv\Scripts\Activate.ps1`
+- Git Bash -- `source .venv/Scripts/activate`
+- WSL / Linux -- `source .venv/bin/activate`
+
+Install dependencies:
+
+```
+pip install -r requirements.txt
+```
+
+Run the development server:
+
+```
+uvicorn app.main:app --reload
+```
+
+The API is then available at `http://127.0.0.1:8000`.
+
+Run tests:
+
+```
+python -m pytest
+```
+
+Run the linter:
+
+```
+ruff check .
+```
+
 ## Not established yet
 
 These will be documented here once implementation work settles them:
 
 - configuration variable names, ports, and database names
-- Python dependency and environment management
 - JavaScript package-management conventions
 - frontend testing and linting tooling
 - PostgreSQL driver and connection configuration
