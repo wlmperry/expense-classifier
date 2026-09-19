@@ -1,6 +1,6 @@
 # Development
 
-**There is no application code in this repository yet.** Setup today is: clone it and read the docs. Install, run, migration, and test commands will be documented here as each one actually lands. This file records what is established, not what is assumed.
+**The initial FastAPI backend foundation has been established; frontend application code has not yet been added.** See Backend setup below for the install, run, and test commands that have been verified. Migration commands will be documented here once persistence work lands. This file records what is established, not what is assumed.
 
 ## Prerequisites
 
