@@ -1,6 +1,9 @@
 from logging.config import fileConfig
 
 from alembic import context
+from app import (
+    models,  # noqa: F401  # registers Expense on Base.metadata for autogenerate
+)
 from app.database import Base, engine, get_database_url
 
 # This is the Alembic Config object, which provides
