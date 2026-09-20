@@ -225,8 +225,20 @@ Issue #12 encoded the Expense contract above in SQLAlchemy and PostgreSQL, estab
 
 These are schema/persistence decisions only. They do not establish API endpoint shapes, Pydantic schemas, or any repository/service abstraction.
 
+## Established API decisions
+
+Issue #13 added the first read endpoint on top of Issue #12's schema, establishing:
+
+- `GET /expenses` returns `200 OK` with a JSON array of persisted Expenses, each carrying exactly the persisted-Expense contract fields: `id`, `merchant`, `description`, `amount`, `expense_date`. An empty persistence state returns `[]`, not an error.
+- The API response schema (`app.schemas.ExpenseRead`) is a Pydantic model distinct from the SQLAlchemy `app.models.Expense` ORM class, built from ORM objects via Pydantic v2's `from_attributes`. The name leaves room for a future `ExpenseCreate` once a creation endpoint exists.
+- `amount` is typed as Pydantic `Decimal`, not `float`, so it serializes as a JSON string (e.g. `"2.75"`), matching the contract's wire-format rule -- never a JSON number.
+- `expense_date` is typed as Pydantic `date`, which serializes to ISO `YYYY-MM-DD`, matching the contract.
+- The endpoint queries through the existing `get_db` SQLAlchemy session dependency; no repository or service abstraction layer was introduced for this minimal read path.
+
+These are the only API decisions established so far. Creation (`POST`), pagination, filtering, sorting, and authentication remain undecided.
+
 ## Not decided yet
 
-API endpoints, request/response schemas, repository layout, and deployment are undecided. They will be documented here as they are established, rather than guessed at now.
+The read side of `GET /expenses` and its response schema are established (see "Established API decisions" above). Creation and other endpoints, further request/response schemas, repository layout, and deployment remain undecided. They will be documented here as they are established, rather than guessed at now.
 
 Schema and design for Receipt, Transaction, categorization, and every other concept listed under "Deferred from this contract" above remain entirely undecided.
