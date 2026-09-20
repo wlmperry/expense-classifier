@@ -1,6 +1,6 @@
 # Development
 
-**The initial FastAPI backend foundation has been established; frontend application code has not yet been added.** See Backend setup below for the install, run, and test commands that have been verified. Migration commands will be documented here once persistence work lands. This file records what is established, not what is assumed.
+**The initial FastAPI backend foundation has been established, and a React/TypeScript/Vite frontend foundation now exists.** See Backend setup and Frontend setup below for the install, run, and test commands that have been verified. Migration commands will be documented here once persistence work lands. This file records what is established, not what is assumed.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ The planned stack requires the following tools or services as development progre
 - **Node.js** -- runtime for frontend development tooling
 - **PostgreSQL** -- application database
 
-Specific versions are not pinned yet; they will be recorded here once the first backend and frontend code establishes them.
+Specific versions are not pinned yet, except Node.js: the frontend has been verified against Node.js 24 (LTS) and npm 11.
 
 ## Choosing an environment
 
@@ -81,11 +81,47 @@ Run the linter:
 ruff check .
 ```
 
+## Frontend setup (React / TypeScript / Vite)
+
+From the `frontend/` directory:
+
+```
+npm install
+```
+
+Copy the API configuration boundary and adjust it if the backend runs somewhere other than `http://127.0.0.1:8000`:
+
+```
+cp .env.example .env
+```
+
+Run the development server:
+
+```
+npm run dev
+```
+
+Run a production build:
+
+```
+npm run build
+```
+
+Run tests:
+
+```
+npm run test
+```
+
+Run the linter:
+
+```
+npm run lint
+```
+
 ## Not established yet
 
 These will be documented here once implementation work settles them:
 
 - configuration variable names, ports, and database names
-- JavaScript package-management conventions
-- frontend testing and linting tooling
 - PostgreSQL driver and connection configuration
