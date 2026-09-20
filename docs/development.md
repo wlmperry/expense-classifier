@@ -36,7 +36,7 @@ Whenever you write a command down -- in a document, an Issue, or a pull request 
 
 **Repository location under WSL.** If you develop in WSL, keeping the clone inside the Linux filesystem -- under your home directory rather than on a mounted Windows drive -- is recommended, because file access across the mount boundary is noticeably slower. This is a recommendation, not a requirement.
 
-**PostgreSQL** may run on the Windows host or inside WSL, depending on the developer's environment. The team has not yet standardized a single local database setup; the steps below have been verified against a PostgreSQL 18 server running inside WSL2/Ubuntu. If you run PostgreSQL elsewhere (Windows host, another WSL distro, or another local instance), the same `DATABASE_URL` configuration mechanism applies, but the connection details and server installation/startup commands may differ.
+**PostgreSQL** can run natively on Windows, inside WSL, or in a local Docker container -- Docker is optional and is not required by the project. See "Database setup" below for the local-development convention and how each developer configures their own credentials.
 
 **Setting an environment variable for one command** differs by shell, which matters if you need to override `DATABASE_URL` without editing `.env`:
 
@@ -90,7 +90,14 @@ ruff check .
 
 This establishes the persistence foundation only -- there is no Expense table or model yet. `python -m pytest` above does not require a database connection and stays independent of any local PostgreSQL setup.
 
-1. Have a running local PostgreSQL server with a database and role the application can use. These steps were verified against PostgreSQL 18 running inside WSL2/Ubuntu, using an `expense_classifier_dev` database and an `expense_classifier` role as the documented local-development convention. Other local setups can use different names, hosts, and credentials -- only `DATABASE_URL` needs to point at them.
+1. Have a running local PostgreSQL server with a database and role the application can use.
+
+   - PostgreSQL may be installed natively on Windows, installed/run inside WSL, or run in a local Docker container if preferred. Docker is optional and is not required by the project.
+   - Each developer uses their own local PostgreSQL instance and their own credentials. Never share `.env` files or database passwords between developers.
+   - The documented local-development convention is a database named `expense_classifier_dev` and a role named `expense_classifier`. Each developer chooses their own local password and stores it only in their own gitignored `.env`.
+   - This workflow was verified against PostgreSQL 18 running inside WSL2/Ubuntu and independently against a temporary PostgreSQL 18 instance on Windows during PR review.
+   - **Native Windows setup:** after installing PostgreSQL and confirming the service is running, create the `expense_classifier` role and `expense_classifier_dev` database locally, then continue with step 2 below to configure your `.env`.
+
 2. Copy `.env.example` to `.env` and set `DATABASE_URL` to your connection string:
 
    ```
