@@ -88,7 +88,7 @@ ruff check .
 
 ## Database setup (PostgreSQL / SQLAlchemy / Alembic)
 
-This establishes the persistence foundation only -- there is no Expense table or model yet. `python -m pytest` above does not require a database connection and stays independent of any local PostgreSQL setup.
+This establishes PostgreSQL persistence, including the `expenses` table (Issue #12). Most of `python -m pytest` does not require a database connection; the persistence tests in `tests/test_expense_model.py` do, against the dedicated test database described in "Running persistence tests" below, and skip cleanly with a clear message if it is not configured.
 
 1. Have a running local PostgreSQL server with a database and role the application can use.
 
@@ -120,9 +120,27 @@ This establishes the persistence foundation only -- there is no Expense table or
    alembic upgrade head
    ```
 
-   This reads `DATABASE_URL` through `app/database.py` (see `alembic/env.py`) rather than a hard-coded connection string in `alembic.ini`. At this baseline, with no migration revisions written yet, `alembic current` reports no application revision -- that is expected, not an error. Running `alembic upgrade head` against a fresh database at this baseline creates Alembic's own empty `alembic_version` tracking table (used to record which revision has been applied) but makes no application schema changes; it is a real database write, not a pure no-op.
+   This reads `DATABASE_URL` through `app/database.py` (see `alembic/env.py`) rather than a hard-coded connection string in `alembic.ini`. On a fresh database, `alembic current` reports no revision until `alembic upgrade head` is run; that upgrade applies the initial migration (Issue #12), creating the `expenses` table alongside Alembic's own `alembic_version` tracking table.
 
-Alembic is initialized with an `alembic/versions/` directory that contains no migration revision files yet. The first application/schema migration (the Expense table) belongs to Issue #12, not this persistence bootstrap.
+6. Create the dedicated test database used by persistence tests. It is separate from `expense_classifier_dev` so automated tests never depend on or modify your normal development data. Creating a database typically requires your PostgreSQL admin/superuser access, since the `expense_classifier` role itself does not need `CREATEDB`. On WSL2/Ubuntu, this was verified with:
+
+   ```
+   sudo -u postgres createdb --owner=expense_classifier expense_classifier_test
+   ```
+
+   A differently configured PostgreSQL installation (for example, native Windows, or a different local admin role) may need an equivalent admin command instead.
+
+   Then add `TEST_DATABASE_URL` to your `.env`, using the same role/credentials as `DATABASE_URL` but pointing at `expense_classifier_test`:
+
+   ```
+   TEST_DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>:5432/expense_classifier_test
+   ```
+
+## Running persistence tests
+
+Persistence tests (`tests/test_expense_model.py`) run against the dedicated `expense_classifier_test` database created in step 6 above -- never against `expense_classifier_dev`. At the start of a test session they drop and recreate the ORM-mapped schema there (`Base.metadata.drop_all()` / `create_all()`), and each individual test runs inside a transaction that is rolled back afterward, so no test data persists between tests or between runs.
+
+If `TEST_DATABASE_URL` is not set, persistence tests are skipped with a clear message rather than silently falling back to `DATABASE_URL` -- `python -m pytest` still runs cleanly, just without exercising persistence.
 
 ## Not established yet
 
