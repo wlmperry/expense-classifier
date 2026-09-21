@@ -1,6 +1,6 @@
 # Development
 
-**The initial FastAPI backend foundation has been established, and a PostgreSQL/SQLAlchemy/Alembic persistence foundation now exists; frontend application code has not yet been added.** See Backend setup and Database setup below for the install, run, and test commands that have been verified. This file records what is established, not what is assumed.
+**The initial FastAPI backend foundation, a PostgreSQL/SQLAlchemy/Alembic persistence foundation, and a React/TypeScript/Vite frontend foundation have all been established.** See Backend setup, Database setup, and Frontend setup below for the install, run, and test commands that have been verified. This file records what is established, not what is assumed.
 
 ## Prerequisites
 
@@ -11,7 +11,7 @@ The planned stack requires the following tools or services as development progre
 - **Node.js** -- runtime for frontend development tooling
 - **PostgreSQL** -- application database
 
-Specific versions are not pinned yet; they will be recorded here once the first backend and frontend code establishes them.
+Specific versions are not pinned yet, except Node.js: the frontend has been verified against Node.js 24 (LTS) and npm 11.
 
 ## Choosing an environment
 
@@ -86,6 +86,44 @@ Run the linter:
 ruff check .
 ```
 
+## Frontend setup (React / TypeScript / Vite)
+
+From the `frontend/` directory:
+
+```
+npm install
+```
+
+Copy the API configuration boundary and adjust it if the backend runs somewhere other than `http://127.0.0.1:8000`:
+
+```
+cp .env.example .env
+```
+
+Run the development server:
+
+```
+npm run dev
+```
+
+Run a production build:
+
+```
+npm run build
+```
+
+Run tests:
+
+```
+npm run test
+```
+
+Run the linter:
+
+```
+npm run lint
+```
+
 ## Database setup (PostgreSQL / SQLAlchemy / Alembic)
 
 This establishes PostgreSQL persistence, including the `expenses` table (Issue #12). Most of `python -m pytest` does not require a database connection; the persistence tests in `tests/test_expense_model.py` do, against the dedicated test database described in "Running persistence tests" below, and skip cleanly with a clear message if it is not configured.
@@ -144,7 +182,4 @@ If `TEST_DATABASE_URL` is not set, persistence tests are skipped with a clear me
 
 ## Not established yet
 
-These will be documented here once implementation work settles them:
-
-- JavaScript package-management conventions
-- frontend testing and linting tooling
+Backend, persistence, and frontend foundations are all established as of this writing. This section records the next gap once one appears.
