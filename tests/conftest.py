@@ -11,11 +11,13 @@ import os
 
 import pytest
 from dotenv import load_dotenv
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app import models  # noqa: F401  # registers Expense on Base.metadata
-from app.database import Base
+from app.database import Base, get_db
+from app.main import app
 
 load_dotenv()
 
@@ -75,3 +77,18 @@ def db_session(test_engine):
         session.close()
         transaction.rollback()
         connection.close()
+
+
+@pytest.fixture
+def client(db_session):
+    """A TestClient whose requests run inside `db_session`'s rolled-back
+    transaction, instead of the app's real DATABASE_URL session."""
+
+    def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_db, None)
