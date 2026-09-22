@@ -235,10 +235,21 @@ Issue #13 added the first read endpoint on top of Issue #12's schema, establishi
 - `expense_date` is typed as Pydantic `date`, which serializes to ISO `YYYY-MM-DD`, matching the contract.
 - The endpoint queries through the existing `get_db` SQLAlchemy session dependency; no repository or service abstraction layer was introduced for this minimal read path.
 
-These are the only API decisions established so far. Creation (`POST`), pagination, filtering, sorting, and authentication remain undecided.
+Issue #17 added the first write endpoint, establishing:
+
+- `POST /expenses` is the collection creation endpoint. A successful request persists one Expense and returns `201 Created`.
+- The request schema (`app.schemas.ExpenseCreate`) accepts exactly the four client-owned fields -- `merchant`, `description`, `amount`, `expense_date` -- and rejects any other field, including a client-supplied `id`, through Pydantic's `extra="forbid"` configuration. `id` remains backend/persistence generated, never creation input.
+- The response reuses the existing persisted `ExpenseRead` representation established by #13 (`id`, `merchant`, `description`, `amount`, `expense_date`); #17 did not introduce a second persisted-Expense schema.
+- `amount` crosses the request boundary as a decimal string, matching the contract's wire-format rule: a JSON number (e.g. `2.75`) is rejected rather than silently coerced. `amount` must be greater than zero and retain no more than two decimal places -- including rejecting a value like `"2.750"` that carries a trailing zero, matching the `scale()` semantics `app.models.Expense` already enforces at the database layer.
+- `merchant` and `description` are required and rejected if blank (empty or whitespace-only), without altering the value of an otherwise-valid string.
+- `expense_date` is accepted only as an exact `YYYY-MM-DD` string at the HTTP boundary -- a datetime string, a numeric timestamp, or any other non-conforming shape is rejected before Pydantic's own calendar-date validation runs.
+- Invalid creation input is rejected through ordinary FastAPI/Pydantic validation (`422 Unprocessable Entity`); no custom error-envelope system was introduced.
+- The endpoint persists through the existing `get_db` SQLAlchemy session dependency and commits the created Expense to PostgreSQL; no repository or service abstraction layer was introduced.
+
+These are the only API decisions established so far. Pagination, filtering, sorting, updating, deleting, and authentication remain undecided.
 
 ## Not decided yet
 
-The read side of `GET /expenses` and its response schema are established (see "Established API decisions" above). Creation and other endpoints, further request/response schemas, repository layout, and deployment remain undecided. They will be documented here as they are established, rather than guessed at now.
+`GET /expenses` and `POST /expenses`, and their request/response schemas, are established (see "Established API decisions" above). Updating and deleting Expenses, other endpoints, further request/response schemas, repository layout, and deployment remain undecided. They will be documented here as they are established, rather than guessed at now.
 
 Schema and design for Receipt, Transaction, categorization, and every other concept listed under "Deferred from this contract" above remain entirely undecided.
