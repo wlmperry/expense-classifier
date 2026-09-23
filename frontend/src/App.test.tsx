@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -66,6 +66,32 @@ describe('App', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/failed to fetch expenses: 500/i)
+  })
+
+  it('adds a newly created expense to the displayed list', async () => {
+    const saved = { id: 1, merchant: 'Corner Store', description: 'Coffee', amount: '3.50', expense_date: '2026-09-01' }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: init?.method === 'POST' ? 201 : 200,
+          json: () => Promise.resolve(init?.method === 'POST' ? saved : []),
+        }),
+      ),
+    )
+
+    render(<App />)
+    expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Corner Store' } })
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Coffee' } })
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '3.50' } })
+    fireEvent.change(screen.getByLabelText(/date/i), { target: { value: '2026-09-01' } })
+    fireEvent.click(screen.getByRole('button', { name: /add expense/i }))
+
+    expect(await screen.findByRole('cell', { name: 'Corner Store' })).toBeInTheDocument()
+    expect(screen.queryByText(/no expenses found/i)).not.toBeInTheDocument()
   })
 
   it('shows an error state when the network request itself fails', async () => {
