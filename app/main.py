@@ -1,10 +1,10 @@
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import Expense
-from app.schemas import ExpenseRead
+from app.schemas import ExpenseCreate, ExpenseRead
 
 app = FastAPI()
 
@@ -21,4 +21,23 @@ def list_expenses(db: Session = Depends(get_db)) -> list[ExpenseRead]:
     decisions" for the response shape and wire-format guarantees.
     """
     return db.execute(select(Expense).order_by(Expense.id)).scalars().all()
+
+
+@app.post("/expenses", status_code=status.HTTP_201_CREATED)
+def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> ExpenseRead:
+    """Persist one Expense and return the resulting persisted representation.
+
+    See docs/architecture.md's Expense contract and "Established API
+    decisions" for the request/response shape and wire-format guarantees.
+    """
+    expense = Expense(
+        merchant=payload.merchant,
+        description=payload.description,
+        amount=payload.amount,
+        expense_date=payload.expense_date,
+    )
+    db.add(expense)
+    db.commit()
+    db.refresh(expense)
+    return expense
 
