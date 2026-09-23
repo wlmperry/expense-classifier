@@ -124,6 +124,12 @@ Run the linter:
 npm run lint
 ```
 
+## Cross-origin requests in local development
+
+The browser and the API run on different origins in local development -- the Vite dev server on `http://localhost:5173`, the backend on `http://127.0.0.1:8000` -- so the backend must explicitly allow the frontend's origin. For this ordinary `GET` request, the request still reaches FastAPI and gets a real response; without the right CORS header on that response, the browser blocks the frontend JavaScript from reading it, so the `fetch` call fails from the app's point of view.
+
+`app/main.py` configures `CORSMiddleware` to allow exactly `http://localhost:5173` (Vite's default dev address) and only `GET` requests, matching what the frontend currently needs. If the frontend dev server ever runs on a different port or host, or a future Issue needs another HTTP method from the browser, update the allowed origin/methods there rather than widening it speculatively ahead of need.
+
 ## Database setup (PostgreSQL / SQLAlchemy / Alembic)
 
 This establishes PostgreSQL persistence, including the `expenses` table (Issue #12). Most of `python -m pytest` does not require a database connection; the persistence tests in `tests/test_expense_model.py` do, against the dedicated test database described in "Running persistence tests" below, and skip cleanly with a clear message if it is not configured.

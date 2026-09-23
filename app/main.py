@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -7,6 +8,12 @@ from app.models import Expense
 from app.schemas import ExpenseCreate, ExpenseRead
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["GET"],
+)
+
 
 @app.get("/")
 def read_root() -> dict[str, str]:
