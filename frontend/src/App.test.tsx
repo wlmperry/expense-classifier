@@ -67,4 +67,16 @@ describe('App', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/failed to fetch expenses: 500/i)
   })
+
+  it('shows an error state when the network request itself fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
+    )
+
+    render(<App />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/failed to fetch/i)
+  })
 })

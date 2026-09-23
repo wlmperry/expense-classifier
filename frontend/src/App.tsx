@@ -4,9 +4,9 @@ import type { Expense } from "./types"
 
 function App() {
   const [expenses, setExpenses] = useState<Expense[]>([])
-  const [loading,setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   useEffect(() => {
     fetchExpenses()
       .then(setExpenses)

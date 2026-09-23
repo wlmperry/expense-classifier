@@ -17,7 +17,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root() -> dict[str, str]:
-    return {"status": "ok"}
+    return {"status":"ok"}
 
 
 @app.get("/expenses")
