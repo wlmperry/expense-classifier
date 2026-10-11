@@ -1,0 +1,86 @@
+# Runs the same checks developers run locally (see docs/development.md).
+# Feedback only: it does not approve, merge, or block anything.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Read-only token: the workflow can check out code but cannot push,
+# comment, approve, or merge.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18
+        # Throwaway credentials that exist only inside this CI container.
+        # They are not secrets and match nothing outside CI.
+        env:
+          POSTGRES_USER: expense_classifier
+          POSTGRES_PASSWORD: ci_only_password
+          POSTGRES_DB: expense_classifier_test
+        ports:
+          - 5432:5432
+        # Wait until Postgres accepts connections before the steps start.
+        options: >-
+          --health-cmd "pg_isready -U expense_classifier"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # app/database.py requires DATABASE_URL at import time, but tests never
+      # connect to it (they use TEST_DATABASE_URL). It names a database that
+      # does not exist here, so any accidental use fails loudly.
+      DATABASE_URL: postgresql+psycopg://expense_classifier:ci_only_password@localhost:5432/expense_classifier_dev
+      TEST_DATABASE_URL: postgresql+psycopg://expense_classifier:ci_only_password@localhost:5432/expense_classifier_test
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        # -rs lists any skipped tests, so we can confirm persistence tests ran.
+        run: python -m pytest -rs
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
