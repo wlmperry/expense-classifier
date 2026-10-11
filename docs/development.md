@@ -186,6 +186,10 @@ Persistence tests (`tests/test_expense_model.py`) run against the dedicated `exp
 
 If `TEST_DATABASE_URL` is not set, persistence tests are skipped with a clear message rather than silently falling back to `DATABASE_URL` -- `python -m pytest` still runs cleanly, just without exercising persistence.
 
+## Continuous integration
+
+CI (`.github/workflows/ci.yml`) runs the same commands described above -- `ruff check .` and `python -m pytest -rs` for the backend, `npm ci`, `npm run lint`, `npm run test`, and `npm run build` in `frontend/` -- on Ubuntu with Python 3.13 and Node.js 24. The backend job starts its own PostgreSQL 18 container with an `expense_classifier_test` database, so persistence tests run there instead of being skipped. If CI fails, running the same command locally should reproduce it.
+
 ## Not established yet
 
 Backend, persistence, and frontend foundations are all established as of this writing. This section records the next gap once one appears.

@@ -74,6 +74,12 @@ The person who opens the pull request owns the change and must understand it wel
 
 Delete the merged branch. If the pull request used `Closes #N`, GitHub will close the Issue automatically when the PR merges. Otherwise, confirm the Issue is complete and close it manually.
 
+## Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request targeting `main` and on every push to `main`. A backend job runs `ruff check .` and `python -m pytest -rs` against a temporary PostgreSQL container, and a frontend job runs `npm ci`, `npm run lint`, `npm run test`, and `npm run build`. Results show up on the pull request.
+
+CI is automated feedback only. It does not approve, merge, or block anything, and a passing run is not a substitute for the teammate review described above.
+
 ## Not set up yet
 
-Continuous integration, pull request and Issue templates, and a label taxonomy are not in place. They will be documented here if and when the team adopts them.
+Pull request and Issue templates and a label taxonomy are not in place. They will be documented here if and when the team adopts them.
