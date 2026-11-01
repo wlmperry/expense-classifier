@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -47,4 +47,17 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> Exp
     db.commit()
     db.refresh(expense)
     return expense
+
+
+@app.delete("/expenses/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_expense(expense_id: int, db: Session = Depends(get_db)) -> None:
+    """Delete one persisted Expense by id, or 404 if it does not exist."""
+    expense = db.get(Expense, expense_id)
+    if expense is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
+        )
+
+    db.delete(expense)
+    db.commit()
 

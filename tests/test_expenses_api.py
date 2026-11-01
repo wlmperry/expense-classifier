@@ -148,3 +148,42 @@ def test_create_expense_rejects_invalid_expense_date(client, db_session, expense
 
 def test_create_expense_rejects_client_supplied_id(client, db_session):
     assert_rejected_and_not_persisted(client, db_session, {**VALID_PAYLOAD, "id": 999})
+
+
+def test_delete_expense_removes_it_and_returns_204(client, db_session):
+    expense = Expense(
+        merchant="DOLLAR GENERAL STORE #16600",
+        description="S RED BULL 8.4C",
+        amount=Decimal("2.75"),
+        expense_date=date(2026, 8, 29),
+    )
+    db_session.add(expense)
+    db_session.flush()
+
+    response = client.delete(f"/expenses/{expense.id}")
+
+    assert response.status_code == 204
+    assert db_session.get(Expense, expense.id) is None
+
+
+def test_delete_expense_returns_404_when_not_found(client):
+    response = client.delete("/expenses/999999")
+
+    assert response.status_code == 404
+
+
+def test_delete_expense_twice_returns_404_on_second_call(client, db_session):
+    expense = Expense(
+        merchant="DOLLAR GENERAL STORE #16600",
+        description="S RED BULL 8.4C",
+        amount=Decimal("2.75"),
+        expense_date=date(2026, 8, 29),
+    )
+    db_session.add(expense)
+    db_session.flush()
+
+    first = client.delete(f"/expenses/{expense.id}")
+    second = client.delete(f"/expenses/{expense.id}")
+
+    assert first.status_code == 204
+    assert second.status_code == 404
