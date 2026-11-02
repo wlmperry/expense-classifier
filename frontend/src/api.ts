@@ -21,6 +21,13 @@ export async function createExpense(expense: ExpenseCreate): Promise<Expense> {
     return response.json()
 }
 
+export async function deleteExpense(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/expenses/${id}`, { method: "DELETE" })
+    if (!response.ok) {
+        throw new Error(`Failed to delete expense: ${response.status}`)
+    }
+}
+
 // FastAPI reports validation failures as 422 with {"detail": [{"loc": [...], "msg": "..."}]}.
 interface ValidationErrorBody {
     detail?: { loc: (string | number)[]; msg: string }[]

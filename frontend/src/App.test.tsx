@@ -105,4 +105,68 @@ describe('App', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/failed to fetch/i)
   })
+
+  const oneExpense = { id: 1, merchant: 'Corner Store', description: 'Coffee', amount: '3.50', expense_date: '2026-09-01' }
+
+  it('removes the expense when delete is confirmed', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        status: init?.method === 'DELETE' ? 204 : 200,
+        json: () => Promise.resolve(init?.method === 'DELETE' ? undefined : [oneExpense]),
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+    expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }))
+
+    expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/expenses\/1$/),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
+  })
+
+  it('keeps the expense when delete is cancelled', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => false))
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([oneExpense]) }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+    expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }))
+
+    expect(screen.getByText('Corner Store')).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'DELETE' }))
+  })
+
+  it('shows an error and keeps the expense when delete fails', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: init?.method !== 'DELETE',
+          status: init?.method === 'DELETE' ? 404 : 200,
+          json: () => Promise.resolve(init?.method === 'DELETE' ? null : [oneExpense]),
+        }),
+      ),
+    )
+
+    render(<App />)
+    expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/failed to delete/i)
+    expect(screen.getByText('Corner Store')).toBeInTheDocument()
+  })
 })
