@@ -25,3 +25,18 @@ def test_cors_preflight_allows_json_post_from_frontend_origin():
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
     assert "POST" in response.headers["access-control-allow-methods"]
 
+
+def test_cors_preflight_allows_delete_from_frontend_origin():
+    # A browser sends this OPTIONS "preflight" before a cross-origin DELETE;
+    # if it is rejected, the browser never sends the real DELETE.
+    response = client.options(
+        "/expenses/1",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "DELETE",
+        },
+    )
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+    assert "DELETE" in response.headers["access-control-allow-methods"]
+

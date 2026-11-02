@@ -62,7 +62,12 @@ function App() {
                 <td>{expense.amount}</td>
                 <td>{expense.expense_date}</td>
                 <td>
-                  <button onClick={() => handleDelete(expense)}>Delete</button>
+                  <button
+                    aria-label={`Delete expense at ${expense.merchant}`}
+                    onClick={() => handleDelete(expense)}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}

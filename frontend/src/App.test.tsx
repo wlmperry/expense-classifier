@@ -110,16 +110,14 @@ describe('App', () => {
 
   it('removes the expense when delete is confirmed', async () => {
     vi.stubGlobal('confirm', vi.fn(() => true))
-    vi.stubGlobal(
-      'fetch',
-      vi.fn((_url: string, init?: RequestInit) =>
-        Promise.resolve({
-          ok: true,
-          status: init?.method === 'DELETE' ? 204 : 200,
-          json: () => Promise.resolve(init?.method === 'DELETE' ? undefined : [oneExpense]),
-        }),
-      ),
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        status: init?.method === 'DELETE' ? 204 : 200,
+        json: () => Promise.resolve(init?.method === 'DELETE' ? undefined : [oneExpense]),
+      }),
     )
+    vi.stubGlobal('fetch', fetchMock)
 
     render(<App />)
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
@@ -127,6 +125,10 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: /delete/i }))
 
     expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/expenses\/1$/),
+      expect.objectContaining({ method: 'DELETE' }),
+    )
   })
 
   it('keeps the expense when delete is cancelled', async () => {
