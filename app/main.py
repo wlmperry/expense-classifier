@@ -1,4 +1,7 @@
-from fastapi import Depends, FastAPI, HTTPException, Path, status
+from datetime import date
+from typing import Literal
+
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -6,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Expense
 from app.schemas import ExpenseCreate, ExpenseRead
+
+SortOption = Literal["expense_date", "-expense_date", "amount", "-amount"]
 
 app = FastAPI()
 app.add_middleware(
@@ -21,13 +26,51 @@ def read_root() -> dict[str, str]:
 
 
 @app.get("/expenses")
-def list_expenses(db: Session = Depends(get_db)) -> list[ExpenseRead]:
-    """Return all persisted Expenses.
+def list_expenses(
+    limit: int | None = Query(default=None, gt=0, le=100),
+    offset: int = Query(default=0, ge=0),
+    merchant: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
+    sort: SortOption | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> list[ExpenseRead]:
+    """Return persisted Expenses, optionally filtered, sorted, and paginated.
+
+    With no query parameters, behaves exactly as before: every Expense,
+    ordered by id. merchant matches case-insensitively, anywhere in the
+    field. date_from/date_to are inclusive. sort falls back to ordering by
+    id as a tiebreaker, so results stay deterministic when several rows
+    share a date or amount.
 
     See docs/architecture.md's Expense contract and "Established API
     decisions" for the response shape and wire-format guarantees.
     """
-    return db.execute(select(Expense).order_by(Expense.id)).scalars().all()
+    query = select(Expense)
+
+    if merchant is not None:
+        query = query.where(Expense.merchant.ilike(f"%{merchant}%"))
+    if date_from is not None:
+        query = query.where(Expense.expense_date >= date_from)
+    if date_to is not None:
+        query = query.where(Expense.expense_date <= date_to)
+
+    sort_columns: dict[SortOption, object] = {
+        "expense_date": Expense.expense_date.asc(),
+        "-expense_date": Expense.expense_date.desc(),
+        "amount": Expense.amount.asc(),
+        "-amount": Expense.amount.desc(),
+    }
+    if sort is not None:
+        query = query.order_by(sort_columns[sort], Expense.id)
+    else:
+        query = query.order_by(Expense.id)
+
+    query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+
+    return db.execute(query).scalars().all()
 
 
 @app.post("/expenses", status_code=status.HTTP_201_CREATED)
