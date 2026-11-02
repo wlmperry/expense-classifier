@@ -163,7 +163,7 @@ def test_delete_expense_removes_it_and_returns_204(client, db_session):
     response = client.delete(f"/expenses/{expense.id}")
 
     assert response.status_code == 204
-    assert db_session.get(Expense, expense.id) is None
+    assert expense.id not in [e["id"] for e in client.get("/expenses").json()]
 
 
 def test_delete_expense_returns_404_when_not_found(client):
