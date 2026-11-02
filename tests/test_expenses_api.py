@@ -66,6 +66,274 @@ def test_list_expenses_returns_empty_list_when_no_expenses_exist(client):
     assert response.json() == []
 
 
+def _seed_expenses_for_pagination_filter_sort(db_session):
+    """Four Expenses whose id order, date order, and amount order all
+    differ, so a test can't pass by accident just because two orderings
+    happen to coincide."""
+    expenses = [
+        Expense(
+            merchant="Corner Store",
+            description="Coffee",
+            amount=Decimal("19.99"),
+            expense_date=date(2026, 2, 15),
+        ),
+        Expense(
+            merchant="ACME Hardware",
+            description="Hammer",
+            amount=Decimal("42.00"),
+            expense_date=date(2026, 1, 1),
+        ),
+        Expense(
+            merchant="Corner Store",
+            description="Snacks",
+            amount=Decimal("3.50"),
+            expense_date=date(2026, 2, 1),
+        ),
+        Expense(
+            merchant="Gas Station",
+            description="Fuel",
+            amount=Decimal("7.25"),
+            expense_date=date(2026, 1, 15),
+        ),
+    ]
+    db_session.add_all(expenses)
+    db_session.flush()
+    return expenses
+
+
+def test_list_expenses_limit_restricts_number_of_results(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?limit=2")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [expenses[0].id, expenses[1].id]
+
+
+def test_list_expenses_offset_skips_earlier_results(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?offset=2")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [expenses[2].id, expenses[3].id]
+
+
+def test_list_expenses_limit_and_offset_combine_for_a_page(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?limit=1&offset=1")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [expenses[1].id]
+
+
+@pytest.mark.parametrize("limit", [0, -1])
+def test_list_expenses_rejects_non_positive_limit(client, db_session, limit):
+    _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get(f"/expenses?limit={limit}")
+
+    assert response.status_code == 422
+
+
+def test_list_expenses_rejects_limit_above_maximum(client, db_session):
+    _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?limit=101")
+
+    assert response.status_code == 422
+
+
+def test_list_expenses_accepts_limit_at_maximum(client, db_session):
+    _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?limit=100")
+
+    assert response.status_code == 200
+
+
+def test_list_expenses_rejects_negative_offset(client, db_session):
+    _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?offset=-1")
+
+    assert response.status_code == 422
+
+
+def test_list_expenses_rejects_offset_above_postgres_bigint_max(client, db_session):
+    _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?offset=9223372036854775808")
+
+    assert response.status_code == 422
+
+
+def test_list_expenses_filters_by_merchant_substring_case_insensitive(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?merchant=store")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [expenses[0].id, expenses[2].id]
+
+
+def test_list_expenses_merchant_filter_treats_percent_as_a_literal_character(client, db_session):
+    matching = Expense(
+        merchant="50% Off Store",
+        description="Clearance item",
+        amount=Decimal("5.00"),
+        expense_date=date(2026, 3, 1),
+    )
+    other = Expense(
+        merchant="Regular Store",
+        description="Full price item",
+        amount=Decimal("10.00"),
+        expense_date=date(2026, 3, 2),
+    )
+    db_session.add_all([matching, other])
+    db_session.flush()
+
+    response = client.get("/expenses", params={"merchant": "%"})
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [matching.id]
+
+
+def test_list_expenses_merchant_filter_treats_underscore_as_a_literal_character(client, db_session):
+    matching = Expense(
+        merchant="A_B Hardware",
+        description="Bolt",
+        amount=Decimal("2.00"),
+        expense_date=date(2026, 3, 1),
+    )
+    other = Expense(
+        merchant="Regular Store",
+        description="Full price item",
+        amount=Decimal("10.00"),
+        expense_date=date(2026, 3, 2),
+    )
+    db_session.add_all([matching, other])
+    db_session.flush()
+
+    response = client.get("/expenses", params={"merchant": "_"})
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [matching.id]
+
+
+def test_list_expenses_filters_by_date_from(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?date_from=2026-02-01")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [expenses[0].id, expenses[2].id]
+
+
+def test_list_expenses_filters_by_date_to(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?date_to=2026-01-15")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [expenses[1].id, expenses[3].id]
+
+
+def test_list_expenses_filters_by_date_range_inclusive_on_both_ends(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?date_from=2026-01-15&date_to=2026-02-01")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [expenses[2].id, expenses[3].id]
+
+
+def test_list_expenses_date_from_after_date_to_returns_empty_list(client, db_session):
+    _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?date_from=2026-02-01&date_to=2026-01-01")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_expenses_sorts_by_expense_date_ascending(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?sort=expense_date")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [
+        expenses[1].id,
+        expenses[3].id,
+        expenses[2].id,
+        expenses[0].id,
+    ]
+
+
+def test_list_expenses_sorts_by_expense_date_descending(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?sort=-expense_date")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [
+        expenses[0].id,
+        expenses[2].id,
+        expenses[3].id,
+        expenses[1].id,
+    ]
+
+
+def test_list_expenses_sorts_by_amount_ascending(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?sort=amount")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [
+        expenses[2].id,
+        expenses[3].id,
+        expenses[0].id,
+        expenses[1].id,
+    ]
+
+
+def test_list_expenses_sorts_by_amount_descending(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?sort=-amount")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [
+        expenses[1].id,
+        expenses[0].id,
+        expenses[3].id,
+        expenses[2].id,
+    ]
+
+
+def test_list_expenses_rejects_invalid_sort_value(client, db_session):
+    _seed_expenses_for_pagination_filter_sort(db_session)
+
+    response = client.get("/expenses?sort=bogus")
+
+    assert response.status_code == 422
+
+
+def test_list_expenses_combines_filter_sort_and_pagination(client, db_session):
+    expenses = _seed_expenses_for_pagination_filter_sort(db_session)
+
+    # merchant="a" matches ACME Hardware and Gas Station only (neither
+    # "Corner Store" contains an "a"), then the highest amount of those two
+    # wins under sort=-amount, and limit=1 keeps just that one.
+    response = client.get("/expenses?merchant=a&sort=-amount&limit=1")
+
+    assert response.status_code == 200
+    assert [e["id"] for e in response.json()] == [expenses[1].id]
+
+
 def test_create_expense_persists_and_returns_created_expense(client, db_session):
     response = client.post(
         "/expenses",

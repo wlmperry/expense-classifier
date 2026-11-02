@@ -3,4 +3,4 @@
 # similar) as a default argument value -- that's how FastAPI discovers
 # dependencies from a function's signature. Without this, Ruff's B008 rule
 # flags the framework's own required pattern as a bug.
-extend-immutable-calls = ["fastapi.Depends"]
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
