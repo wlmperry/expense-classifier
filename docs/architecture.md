@@ -246,7 +246,16 @@ Issue #17 added the first write endpoint, establishing:
 - Invalid creation input is rejected through ordinary FastAPI/Pydantic validation (`422 Unprocessable Entity`); no custom error-envelope system was introduced.
 - The endpoint persists through the existing `get_db` SQLAlchemy session dependency and commits the created Expense to PostgreSQL; no repository or service abstraction layer was introduced.
 
-These are the only API decisions established so far. Pagination, filtering, sorting, updating, deleting, and authentication remain undecided.
+Issue #31 added query parameters to the read endpoint, establishing:
+
+- `GET /expenses` accepts `limit` and `offset` for pagination. `limit` must be greater than zero and at most 100; `offset` must be zero or greater. Omitting both returns every persisted Expense, unchanged from before this Issue.
+- `merchant` filters to rows whose `merchant` field contains the given text, case-insensitively, anywhere in the field.
+- `date_from` and `date_to` filter `expense_date` to an inclusive range. Either can be given alone.
+- `sort` accepts `expense_date`, `-expense_date`, `amount`, or `-amount` (a leading `-` means descending); any other value is rejected with `422`. Omitting `sort` keeps the existing default order, by `id`. When `sort` is given, `id` is still used as a tiebreaker so rows with an equal date or amount come back in a consistent order.
+- Filtering, sorting, and pagination apply in that order: matching rows are found first, then sorted, then paginated.
+- No response envelope or total-count metadata was introduced; the response is still a plain JSON array of `ExpenseRead` objects.
+
+These are the only API decisions established so far. Updating, deleting, and authentication remain undecided.
 
 ## Not decided yet
 
