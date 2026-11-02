@@ -28,7 +28,7 @@ def read_root() -> dict[str, str]:
 @app.get("/expenses")
 def list_expenses(
     limit: int | None = Query(default=None, gt=0, le=100),
-    offset: int = Query(default=0, ge=0),
+    offset: int = Query(default=0, ge=0, le=9223372036854775807),
     merchant: str | None = Query(default=None),
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
@@ -49,13 +49,13 @@ def list_expenses(
     query = select(Expense)
 
     if merchant is not None:
-        query = query.where(Expense.merchant.ilike(f"%{merchant}%"))
+        query = query.where(Expense.merchant.icontains(merchant, autoescape=True))
     if date_from is not None:
         query = query.where(Expense.expense_date >= date_from)
     if date_to is not None:
         query = query.where(Expense.expense_date <= date_to)
 
-    sort_columns: dict[SortOption, object] = {
+    sort_columns = {
         "expense_date": Expense.expense_date.asc(),
         "-expense_date": Expense.expense_date.desc(),
         "amount": Expense.amount.asc(),
