@@ -172,6 +172,12 @@ def test_delete_expense_returns_404_when_not_found(client):
     assert response.status_code == 404
 
 
+def test_delete_expense_rejects_id_above_postgres_integer_max(client):
+    response = client.delete("/expenses/99999999999999999999")
+
+    assert response.status_code == 422
+
+
 def test_delete_expense_twice_returns_404_on_second_call(client, db_session):
     expense = Expense(
         merchant="DOLLAR GENERAL STORE #16600",
