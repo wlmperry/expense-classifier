@@ -134,6 +134,61 @@ describe('ExpenseForm', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/failed to fetch/i)
   })
+
+  it('offers exactly the seven allowed categories plus auto-detect, defaulting to auto-detect', () => {
+    render(<ExpenseForm {...noop} />)
+
+    const select = screen.getByLabelText(/category/i) as HTMLSelectElement
+    const options = Array.from(select.options).map((o) => o.value)
+
+    expect(options).toEqual([
+      '',
+      'Food & Dining',
+      'Transportation',
+      'Housing & Utilities',
+      'Shopping',
+      'Entertainment',
+      'Health & Fitness',
+      'Other',
+    ])
+    expect(select).toHaveValue('')
+  })
+
+  it('omits category from the request when left on auto-detect', async () => {
+    const fetchMock = stubFetch({ ok: true, body: SAVED_EXPENSE })
+    render(<ExpenseForm {...noop} />)
+
+    fillAndSubmit()
+    await screen.findByRole('status')
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(init.body as string)
+    expect(body).not.toHaveProperty('category')
+  })
+
+  it('includes the chosen category in the request when one is selected', async () => {
+    const fetchMock = stubFetch({ ok: true, body: SAVED_EXPENSE })
+    render(<ExpenseForm {...noop} />)
+
+    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Entertainment' } })
+    fillAndSubmit()
+    await screen.findByRole('status')
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    const body = JSON.parse(init.body as string)
+    expect(body.category).toBe('Entertainment')
+  })
+
+  it('resets the category dropdown back to auto-detect after a successful save', async () => {
+    stubFetch({ ok: true, body: SAVED_EXPENSE })
+    render(<ExpenseForm {...noop} />)
+
+    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Shopping' } })
+    fillAndSubmit()
+    await screen.findByRole('status')
+
+    expect(screen.getByLabelText(/category/i)).toHaveValue('')
+  })
 })
 
 describe('ExpenseForm editing', () => {
@@ -149,6 +204,7 @@ describe('ExpenseForm editing', () => {
     expect(screen.getByLabelText(/description/i)).toHaveValue('Fuel')
     expect(screen.getByLabelText(/amount/i)).toHaveValue('42.00')
     expect(screen.getByLabelText(/date/i)).toHaveValue('2026-09-02')
+    expect(screen.queryByLabelText(/category/i)).not.toBeInTheDocument()
   })
 
   it('PATCHes only the fields that were actually changed', async () => {

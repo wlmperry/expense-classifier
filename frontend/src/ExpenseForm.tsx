@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react"
 import { createExpense, updateExpense } from "./api"
-import type { Expense, ExpenseCreate, ExpenseUpdate } from "./types"
+import { CATEGORIES } from "./types"
+import type { Category, Expense, ExpenseCreate, ExpenseUpdate } from "./types"
 
 const EMPTY_FORM: ExpenseCreate = {
   merchant: "",
@@ -23,9 +24,13 @@ function formValuesFor(expense: Expense | null | undefined): ExpenseCreate {
 
 // Only the fields that actually differ from the row being edited are sent,
 // matching PATCH /expenses/{id}'s "an omitted field means unchanged" contract.
+// Fixed to these four keys (not all of ExpenseCreate): category isn't
+// editable here, and formValuesFor() never puts one in `current` anyway.
+const EDITABLE_FIELDS = ["merchant", "description", "amount", "expense_date"] as const
+
 function changedFields(initial: ExpenseCreate, current: ExpenseCreate): ExpenseUpdate {
   const changes: ExpenseUpdate = {}
-  for (const key of Object.keys(current) as (keyof ExpenseCreate)[]) {
+  for (const key of EDITABLE_FIELDS) {
     if (current[key] !== initial[key]) {
       changes[key] = current[key]
     }
@@ -50,6 +55,10 @@ function ExpenseForm({ expenseToEdit, onCreated, onUpdated, onCancelEdit }: Expe
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<Expense | null>(null)
+  // Create mode only -- editing a category isn't in scope here yet. "" means
+  // "auto-detect": left off the request entirely so the backend's classifier
+  // picks one, same as never touching this dropdown at all.
+  const [category, setCategory] = useState<Category | "">("")
 
   function updateField(field: keyof ExpenseCreate, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -80,9 +89,11 @@ function ExpenseForm({ expenseToEdit, onCreated, onUpdated, onCancelEdit }: Expe
     setError(null)
     setCreated(null)
     try {
-      const expense = await createExpense(form)
+      const payload: ExpenseCreate = category ? { ...form, category } : form
+      const expense = await createExpense(payload)
       setCreated(expense)
       setForm(EMPTY_FORM)
+      setCategory("")
       onCreated(expense)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
@@ -142,6 +153,22 @@ function ExpenseForm({ expenseToEdit, onCreated, onUpdated, onCancelEdit }: Expe
           required
         />
       </label>
+      {!isEditing && (
+        <label>
+          Category
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value as Category | "")}
+          >
+            <option value="">Auto-detect</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <button type="submit" disabled={submitting}>
         {submitting ? "Saving..." : isEditing ? "Save" : "Add expense"}
       </button>
