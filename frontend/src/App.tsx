@@ -9,6 +9,7 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
 
   useEffect(() => {
     fetchExpenses()
@@ -29,6 +30,11 @@ function App() {
     setExpenses((current) => [...current, ...imported])
   }
 
+  function handleUpdated(updated: Expense) {
+    setExpenses((current) => current.map((e) => (e.id === updated.id ? updated : e)))
+    setEditingExpense(null)
+  }
+
   async function handleDelete(expense: Expense) {
     if (!window.confirm(`Delete the expense at ${expense.merchant}?`)) {
       return
@@ -46,7 +52,13 @@ function App() {
     <main>
       <h1>Expense Classifier</h1>
       <ConnectBank onImported={handleImported} />
-      <ExpenseForm onCreated={handleCreated} />
+      <ExpenseForm
+        key={editingExpense?.id ?? "create"}
+        expenseToEdit={editingExpense}
+        onCreated={handleCreated}
+        onUpdated={handleUpdated}
+        onCancelEdit={() => setEditingExpense(null)}
+      />
       {loading && <p>Loading expenses...</p>}
       {error && <p role="alert">Error: {error}</p>}
       {deleteError && <p role="alert">{deleteError}</p>}
@@ -72,6 +84,12 @@ function App() {
                 <td>{expense.expense_date}</td>
                 <td>{expense.category}</td>
                 <td>
+                  <button
+                    aria-label={`Edit expense at ${expense.merchant}`}
+                    onClick={() => setEditingExpense(expense)}
+                  >
+                    Edit
+                  </button>
                   <button
                     aria-label={`Delete expense at ${expense.merchant}`}
                     onClick={() => handleDelete(expense)}

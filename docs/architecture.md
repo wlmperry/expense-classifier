@@ -255,10 +255,35 @@ Issue #31 added query parameters to the read endpoint, establishing:
 - Filtering, sorting, and pagination apply in that order: matching rows are found first, then sorted, then paginated.
 - No response envelope or total-count metadata was introduced; the response is still a plain JSON array of `ExpenseRead` objects.
 
-These are the only API decisions established so far. Updating and authentication remain undecided.
+Added on `demo/plaid-ml-mvp` alongside the Plaid/categorizer demo work, ahead of a
+filed Issue (the team's usual sign-off for editing/category work was bypassed
+under deadline pressure -- see the branch's own history for that decision):
+
+- `PATCH /expenses/{id}` partially updates one persisted Expense. A successful
+  request returns `200 OK` with the updated Expense in the existing
+  `ExpenseRead` shape; an unknown id returns `404`.
+- The request schema (`app.schemas.ExpenseUpdate`) makes every field optional
+  -- `merchant`, `description`, `amount`, `expense_date`, `category` -- and
+  only the fields actually present in the request body are changed. An
+  omitted field keeps its current persisted value.
+- Unlike `POST /expenses`, an omitted `category` is **not** re-derived from
+  the classifier here: "omitted" means "leave it alone," not "guess for me."
+  A client that wants a different category has to supply one explicitly.
+- A field sent explicitly as `null` is rejected with `422`, since none of
+  these columns are nullable. An empty request body (`{}`) is also rejected
+  with `422` rather than treated as a no-op.
+- `extra="forbid"` still applies -- an unknown field, including a
+  client-supplied `id`, is rejected. Per-field validation (blank-rejection,
+  amount wire-format and scale rules, exact `YYYY-MM-DD` dates, valid
+  category) otherwise matches `POST /expenses`.
+- `id` is capped at PostgreSQL's `integer` maximum, same as `DELETE
+  /expenses/{id}`, so an out-of-range id is rejected with `422` instead of a
+  database error.
+
+These are the only API decisions established so far. Authentication remains undecided.
 
 ## Not decided yet
 
-`GET /expenses` and `POST /expenses`, and their request/response schemas, are established (see "Established API decisions" above). Updating Expenses, other endpoints, further request/response schemas, repository layout, and deployment remain undecided. They will be documented here as they are established, rather than guessed at now.
+`GET /expenses`, `POST /expenses`, and `PATCH /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend, other endpoints, further request/response schemas, repository layout, and deployment remain undecided. They will be documented here as they are established, rather than guessed at now.
 
 Schema and design for Receipt, Transaction, categorization, and every other concept listed under "Deferred from this contract" above remain entirely undecided.

@@ -469,6 +469,165 @@ def test_create_expense_rejects_client_supplied_id(client, db_session):
     assert_rejected_and_not_persisted(client, db_session, {**VALID_PAYLOAD, "id": 999})
 
 
+def _seed_one_expense(db_session) -> Expense:
+    expense = Expense(
+        merchant="DOLLAR GENERAL STORE #16600",
+        description="S RED BULL 8.4C",
+        amount=Decimal("2.75"),
+        expense_date=date(2026, 8, 29),
+        category="Shopping",
+    )
+    db_session.add(expense)
+    db_session.flush()
+    return expense
+
+
+def test_update_expense_updates_given_fields_and_leaves_the_rest(client, db_session):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(
+        f"/expenses/{expense.id}",
+        json={"amount": "9.99", "description": "Updated snack run"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == expense.id
+    assert body["amount"] == "9.99"
+    assert body["description"] == "Updated snack run"
+    assert body["merchant"] == "DOLLAR GENERAL STORE #16600"
+    assert body["expense_date"] == "2026-08-29"
+    assert body["category"] == "Shopping"
+
+    db_session.refresh(expense)
+    assert expense.amount == Decimal("9.99")
+    assert expense.description == "Updated snack run"
+
+
+def test_update_expense_does_not_reclassify_category_when_merchant_changes(client, db_session):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(f"/expenses/{expense.id}", json={"merchant": "STARBUCKS #1234"})
+
+    assert response.status_code == 200
+    assert response.json()["category"] == "Shopping"
+
+
+def test_update_expense_accepts_explicit_category_override(client, db_session):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(f"/expenses/{expense.id}", json={"category": "Entertainment"})
+
+    assert response.status_code == 200
+    assert response.json()["category"] == "Entertainment"
+
+
+def test_update_expense_returns_404_when_not_found(client):
+    response = client.patch("/expenses/999999", json={"amount": "1.00"})
+
+    assert response.status_code == 404
+
+
+def test_update_expense_rejects_id_above_postgres_integer_max(client):
+    response = client.patch("/expenses/99999999999999999999", json={"amount": "1.00"})
+
+    assert response.status_code == 422
+
+
+def test_update_expense_rejects_empty_body(client, db_session):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(f"/expenses/{expense.id}", json={})
+
+    assert response.status_code == 422
+
+
+def test_update_expense_rejects_client_supplied_id(client, db_session):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(f"/expenses/{expense.id}", json={"id": 999})
+
+    assert response.status_code == 422
+
+
+def test_update_expense_rejects_unknown_field(client, db_session):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(f"/expenses/{expense.id}", json={"not_a_real_field": "x"})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "field", ["merchant", "description", "amount", "expense_date", "category"]
+)
+def test_update_expense_rejects_explicit_null(client, db_session, field):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(f"/expenses/{expense.id}", json={field: None})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("merchant", ["", "   "])
+def test_update_expense_rejects_blank_merchant(client, db_session, merchant):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(f"/expenses/{expense.id}", json={"merchant": merchant})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("amount", [2.75, "2.755", "2.750", "0.00", "-5.00"])
+def test_update_expense_rejects_invalid_amount(client, db_session, amount):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(f"/expenses/{expense.id}", json={"amount": amount})
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "expense_date",
+    ["2026-02-30", "09/20/2026", "2026-09-20T00:00:00", 1758326400],
+)
+def test_update_expense_rejects_invalid_expense_date(client, db_session, expense_date):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(f"/expenses/{expense.id}", json={"expense_date": expense_date})
+
+    assert response.status_code == 422
+
+
+def test_update_expense_rejects_invalid_category(client, db_session):
+    expense = _seed_one_expense(db_session)
+
+    response = client.patch(
+        f"/expenses/{expense.id}", json={"category": "Not A Real Category"}
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_expense_does_not_affect_other_expenses(client, db_session):
+    target = _seed_one_expense(db_session)
+    other = Expense(
+        merchant="ACME HARDWARE",
+        description="HAMMER",
+        amount=Decimal("19.99"),
+        expense_date=date(2026, 1, 5),
+        category="Shopping",
+    )
+    db_session.add(other)
+    db_session.flush()
+
+    response = client.patch(f"/expenses/{target.id}", json={"amount": "1.00"})
+
+    assert response.status_code == 200
+    db_session.refresh(other)
+    assert other.amount == Decimal("19.99")
+
+
 def test_delete_expense_removes_it_and_returns_204(client, db_session):
     expense = Expense(
         merchant="DOLLAR GENERAL STORE #16600",

@@ -163,6 +163,47 @@ describe('App', () => {
     expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'DELETE' }))
   })
 
+  it('opens the edit form prefilled, saves, and shows the updated row', async () => {
+    const updated = { ...oneExpense, amount: '50.00' }
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      const plaidStub = stubPlaidLinkToken(url)
+      if (plaidStub) return plaidStub
+      if (init?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(updated) })
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([oneExpense]) })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+    expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
+    expect(screen.getByRole('heading', { name: /edit expense/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/amount/i)).toHaveValue('3.50')
+
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '50.00' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    expect(await screen.findByText('50.00')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /add expense/i })).toBeInTheDocument()
+  })
+
+  it('discards changes when Cancel is clicked and keeps the original row', async () => {
+    stubFetch({ ok: true, body: [oneExpense] })
+
+    render(<App />)
+    expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '999.99' } })
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(screen.getByRole('heading', { name: /add expense/i })).toBeInTheDocument()
+    expect(screen.getByText('3.50')).toBeInTheDocument()
+    expect(screen.queryByText('999.99')).not.toBeInTheDocument()
+  })
+
   it('shows an error and keeps the expense when delete fails', async () => {
     vi.stubGlobal('confirm', vi.fn(() => true))
     vi.stubGlobal(

@@ -25,6 +25,7 @@ from app.plaid_client import plaid_client
 from app.schemas import (
     ExpenseCreate,
     ExpenseRead,
+    ExpenseUpdate,
     PlaidExchangePublicTokenRequest,
     PlaidExchangePublicTokenResponse,
     PlaidLinkTokenResponse,
@@ -41,7 +42,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
 )
 
 
@@ -117,6 +118,33 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> Exp
         category=category,
     )
     db.add(expense)
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+
+@app.patch("/expenses/{expense_id}")
+def update_expense(
+    payload: ExpenseUpdate,
+    expense_id: int = Path(le=2147483647),
+    db: Session = Depends(get_db),
+) -> ExpenseRead:
+    """Partially update one persisted Expense by id, or 404 if it does not exist.
+
+    Only fields present in the request body are changed; an omitted field
+    keeps its existing value. Unlike POST /expenses, category is never
+    re-derived from the classifier here -- a client that wants a different
+    category has to say so explicitly.
+    """
+    expense = db.get(Expense, expense_id)
+    if expense is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
+        )
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(expense, field, value)
+
     db.commit()
     db.refresh(expense)
     return expense

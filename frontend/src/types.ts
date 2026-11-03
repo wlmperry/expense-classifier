@@ -12,6 +12,12 @@ export interface Expense {
 // optional (the backend's baseline classifier fills it in when omitted).
 export type ExpenseCreate = Omit<Expense, "id" | "category">
 
+// The shape sent to PATCH /expenses/{id}: only the fields the editing UI
+// actually changed. category isn't editable here yet -- that's a separate,
+// not-yet-built dropdown -- so it's left out entirely rather than typed as
+// always-optional-but-unused.
+export type ExpenseUpdate = Partial<Omit<Expense, "id" | "category">>
+
 export interface PlaidLinkTokenResponse {
     link_token: string
     expiration: string
