@@ -28,12 +28,14 @@ def test_list_expenses_returns_persisted_expenses(client, db_session):
         description="S RED BULL 8.4C",
         amount=Decimal("2.75"),
         expense_date=date(2026, 8, 29),
+        category="Other",
     )
     second = Expense(
         merchant="ACME HARDWARE",
         description="HAMMER",
         amount=Decimal("19.99"),
         expense_date=date(2026, 1, 5),
+        category="Other",
     )
     db_session.add_all([first, second])
     db_session.flush()
@@ -48,6 +50,7 @@ def test_list_expenses_returns_persisted_expenses(client, db_session):
             "description": "S RED BULL 8.4C",
             "amount": "2.75",
             "expense_date": "2026-08-29",
+            "category": "Other",
         },
         {
             "id": second.id,
@@ -55,6 +58,7 @@ def test_list_expenses_returns_persisted_expenses(client, db_session):
             "description": "HAMMER",
             "amount": "19.99",
             "expense_date": "2026-01-05",
+            "category": "Other",
         },
     ]
 
@@ -76,24 +80,28 @@ def _seed_expenses_for_pagination_filter_sort(db_session):
             description="Coffee",
             amount=Decimal("19.99"),
             expense_date=date(2026, 2, 15),
+            category="Other",
         ),
         Expense(
             merchant="ACME Hardware",
             description="Hammer",
             amount=Decimal("42.00"),
             expense_date=date(2026, 1, 1),
+            category="Other",
         ),
         Expense(
             merchant="Corner Store",
             description="Snacks",
             amount=Decimal("3.50"),
             expense_date=date(2026, 2, 1),
+            category="Other",
         ),
         Expense(
             merchant="Gas Station",
             description="Fuel",
             amount=Decimal("7.25"),
             expense_date=date(2026, 1, 15),
+            category="Other",
         ),
     ]
     db_session.add_all(expenses)
@@ -184,12 +192,14 @@ def test_list_expenses_merchant_filter_treats_percent_as_a_literal_character(cli
         description="Clearance item",
         amount=Decimal("5.00"),
         expense_date=date(2026, 3, 1),
+        category="Other",
     )
     other = Expense(
         merchant="Regular Store",
         description="Full price item",
         amount=Decimal("10.00"),
         expense_date=date(2026, 3, 2),
+        category="Other",
     )
     db_session.add_all([matching, other])
     db_session.flush()
@@ -206,12 +216,14 @@ def test_list_expenses_merchant_filter_treats_underscore_as_a_literal_character(
         description="Bolt",
         amount=Decimal("2.00"),
         expense_date=date(2026, 3, 1),
+        category="Other",
     )
     other = Expense(
         merchant="Regular Store",
         description="Full price item",
         amount=Decimal("10.00"),
         expense_date=date(2026, 3, 2),
+        category="Other",
     )
     db_session.add_all([matching, other])
     db_session.flush()
@@ -352,6 +364,7 @@ def test_create_expense_persists_and_returns_created_expense(client, db_session)
     assert body["description"] == "S RED BULL 8.4C"
     assert body["amount"] == "2.75"
     assert body["expense_date"] == "2026-08-29"
+    assert body["category"] == "Shopping"
 
     persisted = db_session.get(Expense, body["id"])
     assert persisted is not None
@@ -359,6 +372,44 @@ def test_create_expense_persists_and_returns_created_expense(client, db_session)
     assert persisted.description == "S RED BULL 8.4C"
     assert persisted.amount == Decimal("2.75")
     assert persisted.expense_date == date(2026, 8, 29)
+    assert persisted.category == "Shopping"
+
+
+def test_create_expense_classifies_category_when_omitted(client):
+    response = client.post(
+        "/expenses",
+        json={
+            "merchant": "STARBUCKS #1234",
+            "description": "Coffee",
+            "amount": "4.50",
+            "expense_date": "2026-08-29",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["category"] == "Food & Dining"
+
+
+def test_create_expense_respects_explicit_category_over_classifier(client):
+    response = client.post(
+        "/expenses",
+        json={
+            "merchant": "STARBUCKS #1234",
+            "description": "Coffee",
+            "amount": "4.50",
+            "expense_date": "2026-08-29",
+            "category": "Entertainment",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["category"] == "Entertainment"
+
+
+def test_create_expense_rejects_invalid_category(client, db_session):
+    assert_rejected_and_not_persisted(
+        client, db_session, {**VALID_PAYLOAD, "category": "Not A Real Category"}
+    )
 
 
 def assert_rejected_and_not_persisted(client, db_session, payload):
@@ -424,6 +475,7 @@ def test_delete_expense_removes_it_and_returns_204(client, db_session):
         description="S RED BULL 8.4C",
         amount=Decimal("2.75"),
         expense_date=date(2026, 8, 29),
+        category="Other",
     )
     db_session.add(expense)
     db_session.flush()
@@ -452,6 +504,7 @@ def test_delete_expense_twice_returns_404_on_second_call(client, db_session):
         description="S RED BULL 8.4C",
         amount=Decimal("2.75"),
         expense_date=date(2026, 8, 29),
+        category="Other",
     )
     db_session.add(expense)
     db_session.flush()

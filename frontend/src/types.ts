@@ -5,7 +5,23 @@ export interface Expense {
     description: string
     amount: string
     expense_date: string
+    category: string
 }
 
-// The shape sent to POST /expenses: the backend owns `id`, so the client never sends one.
-export type ExpenseCreate = Omit<Expense, "id">
+// The shape sent to POST /expenses: the backend owns `id`, and category is
+// optional (the backend's baseline classifier fills it in when omitted).
+export type ExpenseCreate = Omit<Expense, "id" | "category">
+
+export interface PlaidLinkTokenResponse {
+    link_token: string
+    expiration: string
+}
+
+export interface PlaidExchangePublicTokenResponse {
+    item_id: string
+}
+
+export interface PlaidSyncResponse {
+    added_count: number
+    added: Expense[]
+}

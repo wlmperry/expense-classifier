@@ -16,6 +16,7 @@ iniconfig==2.3.0
 Mako==1.4.1
 MarkupSafe==3.0.3
 packaging==26.3
+plaid-python==46.0.0
 pluggy==1.6.0
 psycopg==3.3.6
 psycopg-binary==3.3.6

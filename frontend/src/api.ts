@@ -1,5 +1,11 @@
 import { API_BASE_URL } from "./config"
-import type { Expense, ExpenseCreate } from "./types"
+import type {
+    Expense,
+    ExpenseCreate,
+    PlaidExchangePublicTokenResponse,
+    PlaidLinkTokenResponse,
+    PlaidSyncResponse,
+} from "./types"
 
 export async function fetchExpenses(): Promise<Expense[]> {
     const response = await fetch(`${API_BASE_URL}/expenses`)
@@ -26,6 +32,36 @@ export async function deleteExpense(id: number): Promise<void> {
     if (!response.ok) {
         throw new Error(`Failed to delete expense: ${response.status}`)
     }
+}
+
+export async function createPlaidLinkToken(): Promise<PlaidLinkTokenResponse> {
+    const response = await fetch(`${API_BASE_URL}/plaid/link-token`, { method: "POST" })
+    if (!response.ok) {
+        throw new Error(`Failed to create Plaid link token: ${response.status}`)
+    }
+    return response.json()
+}
+
+export async function exchangePublicToken(
+    publicToken: string,
+): Promise<PlaidExchangePublicTokenResponse> {
+    const response = await fetch(`${API_BASE_URL}/plaid/exchange-public-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ public_token: publicToken }),
+    })
+    if (!response.ok) {
+        throw new Error(`Failed to link bank account: ${response.status}`)
+    }
+    return response.json()
+}
+
+export async function syncPlaidTransactions(itemId: string): Promise<PlaidSyncResponse> {
+    const response = await fetch(`${API_BASE_URL}/plaid/sync/${itemId}`, { method: "POST" })
+    if (!response.ok) {
+        throw new Error(`Failed to sync transactions: ${response.status}`)
+    }
+    return response.json()
 }
 
 // FastAPI reports validation failures as 422 with {"detail": [{"loc": [...], "msg": "..."}]}.

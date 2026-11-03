@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-plaid-link": "^5.0.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",

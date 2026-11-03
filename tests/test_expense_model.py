@@ -18,6 +18,7 @@ VALID_KWARGS = {
     "description": "S RED BULL 8.4C",
     "amount": Decimal("2.75"),
     "expense_date": date(2026, 8, 29),
+    "category": "Other",
 }
 
 

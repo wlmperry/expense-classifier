@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { deleteExpense, fetchExpenses } from "./api"
+import ConnectBank from "./ConnectBank"
 import ExpenseForm from "./ExpenseForm"
 import type { Expense } from "./types"
 
@@ -22,6 +23,12 @@ function App() {
     setExpenses((current) => [...current, expense])
   }
 
+  // Same append reasoning as handleCreated: Plaid-imported expenses are
+  // newly inserted, so they always carry the highest ids so far.
+  function handleImported(imported: Expense[]) {
+    setExpenses((current) => [...current, ...imported])
+  }
+
   async function handleDelete(expense: Expense) {
     if (!window.confirm(`Delete the expense at ${expense.merchant}?`)) {
       return
@@ -38,6 +45,7 @@ function App() {
   return (
     <main>
       <h1>Expense Classifier</h1>
+      <ConnectBank onImported={handleImported} />
       <ExpenseForm onCreated={handleCreated} />
       {loading && <p>Loading expenses...</p>}
       {error && <p role="alert">Error: {error}</p>}
@@ -51,6 +59,7 @@ function App() {
               <th>Description</th>
               <th>Amount</th>
               <th>Date</th>
+              <th>Category</th>
               <th></th>
             </tr>
           </thead>
@@ -61,6 +70,7 @@ function App() {
                 <td>{expense.description}</td>
                 <td>{expense.amount}</td>
                 <td>{expense.expense_date}</td>
+                <td>{expense.category}</td>
                 <td>
                   <button
                     aria-label={`Delete expense at ${expense.merchant}`}

@@ -2,10 +2,26 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
+// ConnectBank fetches its own link token on mount, independently of whatever
+// a test is stubbing GET /expenses to do. Routing that call to a harmless,
+// always-successful response keeps each test's fetch stub focused on the
+// /expenses behavior it actually means to test.
+function stubPlaidLinkToken(url: string) {
+  if (!url.includes('/plaid/')) {
+    return null
+  }
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({ link_token: 'link-sandbox-test', expiration: '2026-01-01T00:00:00Z' }),
+  })
+}
+
 function stubFetch(response: { ok: boolean; status?: number; body: unknown }) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() =>
+    vi.fn((url: string) =>
+      stubPlaidLinkToken(url) ??
       Promise.resolve({
         ok: response.ok,
         status: response.status ?? 200,
@@ -97,7 +113,7 @@ describe('App', () => {
   it('shows an error state when the network request itself fails', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
+      vi.fn((url: string) => stubPlaidLinkToken(url) ?? Promise.reject(new TypeError('Failed to fetch'))),
     )
 
     render(<App />)
