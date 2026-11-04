@@ -59,17 +59,23 @@ function ConnectBank({ onImported }: ConnectBankProps) {
   const busy = status === "connecting" || status === "syncing"
 
   return (
-    <div>
-      <button onClick={() => open()} disabled={!ready || busy}>
+    <div className="connect-bank">
+      {error && (
+        <p role="alert" className="message message--error">
+          {error}
+        </p>
+      )}
+      {importedCount !== null && (
+        <p role="status" className="message message--success">
+          Imported {importedCount} transaction{importedCount === 1 ? "" : "s"}.
+        </p>
+      )}
+      <button className="button button--primary" onClick={() => open()} disabled={!ready || busy}>
         {status === "connecting" && "Connecting..."}
         {status === "syncing" && "Importing transactions..."}
         {status === "idle" && "Connect bank"}
         {status === "error" && "Connect bank"}
       </button>
-      {error && <p role="alert">{error}</p>}
-      {importedCount !== null && (
-        <p role="status">Imported {importedCount} transaction{importedCount === 1 ? "" : "s"}.</p>
-      )}
     </div>
   )
 }
