@@ -114,7 +114,11 @@ function ExpenseForm({ expenseToEdit, onCreated, onUpdated, onCancelEdit }: Expe
   // The `required` attributes are only a convenience; the backend is the
   // authority on what a valid Expense is and reports anything else as a 422.
   return (
-    <form onSubmit={handleSubmit} aria-label={isEditing ? "Edit expense" : "Add expense"}>
+    <form
+      className="card expense-form"
+      onSubmit={handleSubmit}
+      aria-label={isEditing ? "Edit expense" : "Add expense"}
+    >
       <h2>{isEditing ? "Edit expense" : "Add expense"}</h2>
       <label>
         Merchant
@@ -132,27 +136,29 @@ function ExpenseForm({ expenseToEdit, onCreated, onUpdated, onCancelEdit }: Expe
           required
         />
       </label>
-      <label>
-        Amount
-        {/* type="text", not "number": the amount stays an exact string, never a JS float. */}
-        <input
-          inputMode="decimal"
-          placeholder="12.34"
-          value={form.amount}
-          onChange={(e) => updateField("amount", e.target.value)}
-          required
-        />
-      </label>
-      <label>
-        Date
-        {/* A date input's value is always "YYYY-MM-DD", the format the API expects. */}
-        <input
-          type="date"
-          value={form.expense_date}
-          onChange={(e) => updateField("expense_date", e.target.value)}
-          required
-        />
-      </label>
+      <div className="expense-form__pair">
+        <label>
+          Amount
+          {/* type="text", not "number": the amount stays an exact string, never a JS float. */}
+          <input
+            inputMode="decimal"
+            placeholder="12.34"
+            value={form.amount}
+            onChange={(e) => updateField("amount", e.target.value)}
+            required
+          />
+        </label>
+        <label>
+          Date
+          {/* A date input's value is always "YYYY-MM-DD", the format the API expects. */}
+          <input
+            type="date"
+            value={form.expense_date}
+            onChange={(e) => updateField("expense_date", e.target.value)}
+            required
+          />
+        </label>
+      </div>
       {!isEditing && (
         <label>
           Category
@@ -169,17 +175,28 @@ function ExpenseForm({ expenseToEdit, onCreated, onUpdated, onCancelEdit }: Expe
           </select>
         </label>
       )}
-      <button type="submit" disabled={submitting}>
-        {submitting ? "Saving..." : isEditing ? "Save" : "Add expense"}
-      </button>
-      {isEditing && (
-        <button type="button" onClick={onCancelEdit} disabled={submitting}>
-          Cancel
+      <div className="expense-form__actions">
+        <button className="button button--primary" type="submit" disabled={submitting}>
+          {submitting ? "Saving..." : isEditing ? "Save" : "Add expense"}
         </button>
+        {isEditing && (
+          <button
+            className="button button--secondary"
+            type="button"
+            onClick={onCancelEdit}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+      {error && (
+        <p role="alert" className="message message--error">
+          Error: {error}
+        </p>
       )}
-      {error && <p role="alert">Error: {error}</p>}
       {created && (
-        <p role="status">
+        <p role="status" className="message message--success">
           Saved {created.merchant} ({created.amount}) on {created.expense_date}.
         </p>
       )}

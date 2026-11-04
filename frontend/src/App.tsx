@@ -49,60 +49,109 @@ function App() {
   }
 
   return (
-    <main>
-      <h1>Expense Classifier</h1>
-      <ConnectBank onImported={handleImported} />
-      <ExpenseForm
-        key={editingExpense?.id ?? "create"}
-        expenseToEdit={editingExpense}
-        onCreated={handleCreated}
-        onUpdated={handleUpdated}
-        onCancelEdit={() => setEditingExpense(null)}
-      />
-      {loading && <p>Loading expenses...</p>}
-      {error && <p role="alert">Error: {error}</p>}
-      {deleteError && <p role="alert">{deleteError}</p>}
-      {!loading && !error && expenses.length === 0 && <p>No expenses found.</p>}
-      {!loading && !error && expenses.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Merchant</th>
-              <th>Description</th>
-              <th>Amount</th>
-              <th>Date</th>
-              <th>Category</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {expenses.map((expense) => (
-              <tr key={expense.id}>
-                <td>{expense.merchant}</td>
-                <td>{expense.description}</td>
-                <td>{expense.amount}</td>
-                <td>{expense.expense_date}</td>
-                <td>{expense.category}</td>
-                <td>
-                  <button
-                    aria-label={`Edit expense at ${expense.merchant}`}
-                    onClick={() => setEditingExpense(expense)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    aria-label={`Delete expense at ${expense.merchant}`}
-                    onClick={() => handleDelete(expense)}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </main>
+    <>
+      <header className="site-header">
+        <div className="site-header__inner">
+          <span className="brand">
+            <span className="brand__mark" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round">
+                <path d="M5 5l10 10M15 5L5 15" />
+              </svg>
+            </span>
+            <span>
+              Xpense<span className="brand__accent">C</span>
+            </span>
+          </span>
+          <ConnectBank onImported={handleImported} />
+        </div>
+      </header>
+
+      <main className="page">
+        <div className="page-title">
+          <p className="page-title__eyebrow">Your ledger</p>
+          <h1>Expense Classifier</h1>
+        </div>
+
+        <div className="page-columns">
+          <section className="card expenses-card" aria-labelledby="expenses-heading">
+            <div className="expenses-card__header">
+              <h2 id="expenses-heading">All expenses</h2>
+            </div>
+            {loading && <p className="expenses-card__message">Loading expenses...</p>}
+            {error && (
+              <p role="alert" className="message message--error">
+                Error: {error}
+              </p>
+            )}
+            {deleteError && (
+              <p role="alert" className="message message--error">
+                {deleteError}
+              </p>
+            )}
+            {!loading && !error && expenses.length === 0 && (
+              <p className="expenses-card__message">No expenses found.</p>
+            )}
+            {!loading && !error && expenses.length > 0 && (
+              <div className="table-scroll">
+                <table className="expenses-table">
+                  <thead>
+                    <tr>
+                      <th>Merchant</th>
+                      <th>Description</th>
+                      <th className="col-amount">Amount</th>
+                      <th>Date</th>
+                      <th>Category</th>
+                      <th className="col-actions">
+                        <span className="visually-hidden">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expenses.map((expense) => (
+                      <tr key={expense.id}>
+                        <td className="col-merchant">{expense.merchant}</td>
+                        <td>{expense.description}</td>
+                        <td className="col-amount">{expense.amount}</td>
+                        <td className="col-date">{expense.expense_date}</td>
+                        <td>
+                          <span className="category-tag">{expense.category}</span>
+                        </td>
+                        <td className="col-actions">
+                          <span className="row-actions">
+                            <button
+                              className="button button--secondary button--small"
+                              aria-label={`Edit expense at ${expense.merchant}`}
+                              onClick={() => setEditingExpense(expense)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="button button--secondary button--small button--danger"
+                              aria-label={`Delete expense at ${expense.merchant}`}
+                              onClick={() => handleDelete(expense)}
+                            >
+                              Delete
+                            </button>
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <ExpenseForm
+            key={editingExpense?.id ?? "create"}
+            expenseToEdit={editingExpense}
+            onCreated={handleCreated}
+            onUpdated={handleUpdated}
+            onCancelEdit={() => setEditingExpense(null)}
+          />
+        </div>
+      </main>
+    </>
   )
 }
 
