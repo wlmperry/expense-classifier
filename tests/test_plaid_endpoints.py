@@ -20,7 +20,7 @@ from app.models import PlaidItem
 @pytest.fixture
 def mock_plaid_client(monkeypatch):
     mock = MagicMock()
-    monkeypatch.setattr("app.main.plaid_client", mock)
+    monkeypatch.setattr("app.main.get_plaid_client", lambda: mock)
     return mock
 
 

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.categorize import classify
 from app.database import get_db
 from app.models import Expense, PlaidItem
-from app.plaid_client import plaid_client
+from app.plaid_client import get_plaid_client
 from app.schemas import (
     ExpenseCreate,
     ExpenseRead,
@@ -184,7 +184,7 @@ def create_plaid_link_token() -> PlaidLinkTokenResponse:
         user=LinkTokenCreateRequestUser(client_user_id="demo-user"),
         products=[Products("transactions")],
     )
-    response = plaid_client.link_token_create(request)
+    response = get_plaid_client().link_token_create(request)
     return PlaidLinkTokenResponse(
         link_token=response.link_token, expiration=response.expiration
     )
@@ -200,7 +200,7 @@ def create_sandbox_public_token() -> PlaidSandboxPublicTokenResponse:
         institution_id=_SANDBOX_INSTITUTION_ID,
         initial_products=[Products("transactions")],
     )
-    response = plaid_client.sandbox_public_token_create(request)
+    response = get_plaid_client().sandbox_public_token_create(request)
     return PlaidSandboxPublicTokenResponse(public_token=response.public_token)
 
 
@@ -212,7 +212,7 @@ def exchange_public_token(
     persist the resulting Item so later syncs can use it.
     """
     request = ItemPublicTokenExchangeRequest(public_token=payload.public_token)
-    response = plaid_client.item_public_token_exchange(request)
+    response = get_plaid_client().item_public_token_exchange(request)
 
     item = PlaidItem(item_id=response.item_id, access_token=response.access_token)
     db.add(item)
@@ -242,7 +242,7 @@ def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> Plai
         )
 
     request = TransactionsSyncRequest(access_token=item.access_token, cursor=item.cursor or "")
-    response = plaid_client.transactions_sync(request)
+    response = get_plaid_client().transactions_sync(request)
 
     added_expenses = []
     for transaction in response.added:
