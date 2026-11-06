@@ -18,6 +18,7 @@ from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.auth import require_auth_token
 from app.categorize import classify
 from app.database import get_db
 from app.models import Expense, PlaidItem
@@ -51,7 +52,7 @@ def read_root() -> dict[str, str]:
     return {"status":"ok"}
 
 
-@app.get("/expenses")
+@app.get("/expenses", dependencies=[Depends(require_auth_token)])
 def list_expenses(
     limit: int | None = Query(default=None, gt=0, le=100),
     offset: int = Query(default=0, ge=0, le=9223372036854775807),
@@ -99,7 +100,11 @@ def list_expenses(
     return db.execute(query).scalars().all()
 
 
-@app.post("/expenses", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/expenses",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_auth_token)],
+)
 def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> ExpenseRead:
     """Persist one Expense and return the resulting persisted representation.
 
@@ -123,7 +128,7 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> Exp
     return expense
 
 
-@app.patch("/expenses/{expense_id}")
+@app.patch("/expenses/{expense_id}", dependencies=[Depends(require_auth_token)])
 def update_expense(
     payload: ExpenseUpdate,
     expense_id: int = Path(le=2147483647),
@@ -150,7 +155,11 @@ def update_expense(
     return expense
 
 
-@app.delete("/expenses/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete(
+    "/expenses/{expense_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_auth_token)],
+)
 def delete_expense(
     expense_id: int = Path(le=2147483647), db: Session = Depends(get_db)
 ) -> None:
@@ -170,7 +179,7 @@ def delete_expense(
     db.commit()
 
 
-@app.post("/plaid/link-token")
+@app.post("/plaid/link-token", dependencies=[Depends(require_auth_token)])
 def create_plaid_link_token() -> PlaidLinkTokenResponse:
     """Create a Plaid Link token for the frontend to open Link with.
 
@@ -190,7 +199,11 @@ def create_plaid_link_token() -> PlaidLinkTokenResponse:
     )
 
 
-@app.post("/plaid/sandbox/public-token", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/plaid/sandbox/public-token",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_auth_token)],
+)
 def create_sandbox_public_token() -> PlaidSandboxPublicTokenResponse:
     """Sandbox-only: simulate a user finishing Link against a fake bank,
     without needing the Link UI. Plaid's API itself rejects this call
@@ -204,7 +217,11 @@ def create_sandbox_public_token() -> PlaidSandboxPublicTokenResponse:
     return PlaidSandboxPublicTokenResponse(public_token=response.public_token)
 
 
-@app.post("/plaid/exchange-public-token", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/plaid/exchange-public-token",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_auth_token)],
+)
 def exchange_public_token(
     payload: PlaidExchangePublicTokenRequest, db: Session = Depends(get_db)
 ) -> PlaidExchangePublicTokenResponse:
@@ -220,7 +237,11 @@ def exchange_public_token(
     return PlaidExchangePublicTokenResponse(item_id=item.item_id)
 
 
-@app.post("/plaid/sync/{item_id}", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/plaid/sync/{item_id}",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_auth_token)],
+)
 def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> PlaidSyncResponse:
     """Pull new transactions for a linked Item and persist each as a
     categorized Expense.

@@ -61,7 +61,10 @@ describe("ConnectBank", () => {
     render(<ConnectBank onImported={() => {}} />)
 
     await screen.findByRole("button", { name: /connect bank/i })
-    expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/plaid/link-token`, { method: "POST" })
+    expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/plaid/link-token`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " },
+    })
   })
 
   it("exchanges the public token, syncs, and reports imported expenses", async () => {

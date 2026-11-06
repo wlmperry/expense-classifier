@@ -72,7 +72,10 @@ describe('ExpenseForm', () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(url).toBe(`${API_BASE_URL}/expenses`)
     expect(init.method).toBe('POST')
-    expect(init.headers).toEqual({ 'Content-Type': 'application/json' })
+    expect(init.headers).toEqual({
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ',
+    })
     // Compare the raw JSON text so a number (3.5) could not sneak past as equal to "3.50".
     expect(init.body).toBe(
       '{"merchant":"Corner Store","description":"Coffee","amount":"3.50","expense_date":"2026-09-01"}',
