@@ -16,6 +16,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from app import models  # noqa: F401  # registers Expense on Base.metadata
+from app.auth import require_auth_token
 from app.database import Base, get_db
 from app.main import app
 
@@ -82,7 +83,28 @@ def db_session(test_engine):
 @pytest.fixture
 def client(db_session):
     """A TestClient whose requests run inside `db_session`'s rolled-back
-    transaction, instead of the app's real DATABASE_URL session."""
+    transaction, instead of the app's real DATABASE_URL session. The shared
+    auth dependency is also overridden to a no-op, so existing tests don't
+    need an Authorization header; tests/test_auth.py exercises the real
+    dependency separately via unauthenticated_client below."""
+
+    def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[require_auth_token] = lambda: None
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(require_auth_token, None)
+
+
+@pytest.fixture
+def unauthenticated_client(db_session, monkeypatch):
+    """Like `client`, but the real auth dependency is left in place --
+    used only by tests/test_auth.py to exercise it directly."""
+    monkeypatch.setenv("API_AUTH_TOKEN", "test-secret-token")
 
     def override_get_db():
         yield db_session

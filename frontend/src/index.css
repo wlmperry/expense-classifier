@@ -1,8 +1,405 @@
+/*
+ * XpenseC visual styling (Issue #35), taken from the "Expenses -- desktop
+ * (current backend)" board of the XpenseC design. Light theme only: the
+ * design has no dark palette, so the browser is told not to apply its own
+ * dark defaults to form controls either.
+ */
+
 :root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
+  color-scheme: light;
+
+  --color-accent: #127a4a;
+  --color-accent-hover: #0f6b40;
+  --color-accent-dark: #0a4d2e;
+  --color-heading: #0a3d24;
+  --color-text: #17291f;
+  --color-label: #2c4436;
+  --color-muted: #4a6153;
+  --color-disabled-text: #5e7567;
+  --color-page: #f4faf6;
+  --color-surface: #ffffff;
+  --color-tint: #e7f4ec;
+  --color-border: #d7e8dd;
+  --color-border-soft: #e6f1ea;
+  --color-input-border: #c9ded0;
+  --color-danger: #a3341c;
+  --color-danger-text: #8a2a16;
+  --color-danger-bg: #fdf1ee;
+  --color-danger-border: #e8b4a8;
+
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-display: "Outfit", system-ui, sans-serif;
+
+  --radius-control: 10px;
+  --radius-card: 16px;
+
+  font-family: var(--font-body);
+  color: var(--color-text);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background: var(--color-page);
+}
+
+/* ---------- Header ---------- */
+
+.site-header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.site-header__inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+  color: var(--color-heading);
+}
+
+.brand__mark {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand__accent {
+  color: var(--color-accent);
+}
+
+/* ---------- Page layout ---------- */
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 36px 24px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.page-title__eyebrow {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.page-title h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 600;
+  color: var(--color-heading);
+  letter-spacing: -0.8px;
+}
+
+/* Table card on the left, form card on the right; wraps to one column when
+   there isn't room for both. */
+.page-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  align-items: flex-start;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  min-width: 0;
+}
+
+.card h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.expenses-card {
+  flex: 999 1 560px;
+  overflow: hidden;
+}
+
+.expenses-card__header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.expenses-card .message {
+  margin: 16px 20px;
+}
+
+.expenses-card__message {
+  margin: 0;
+  padding: 20px;
+  color: var(--color-muted);
+}
+
+/* ---------- Table ---------- */
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.expenses-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.expenses-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-muted);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.expenses-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.expenses-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.expenses-table .col-merchant {
+  font-weight: 600;
+}
+
+.expenses-table .col-date {
+  color: var(--color-muted);
+}
+
+.expenses-table .col-amount {
+  text-align: right;
+  font-weight: 600;
+}
+
+.expenses-table .col-actions {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  text-align: right;
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.category-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-tint);
+  color: var(--color-accent-dark);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---------- Form ---------- */
+
+.expense-form {
+  flex: 1 1 320px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.expense-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-label);
+}
+
+/* Date gets the wider column: the browser's mm/dd/yyyy text plus its
+   calendar icon gets cut off in an even split at the form's narrowest width. */
+.expense-form__pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 12px;
+}
+
+.expense-form__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.expense-form__actions .button {
+  flex: 1;
+}
+
+input,
+select {
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  font: 15px var(--font-body);
+  color: var(--color-text);
+}
+
+input:focus-visible,
+select:focus-visible,
+.button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Buttons ---------- */
+
+.button {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font: 600 15px var(--font-body);
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+}
+
+.button--primary {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+.button--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.button--primary:disabled {
+  background: var(--color-tint);
+  color: var(--color-disabled-text);
+}
+
+.button--secondary {
+  background: var(--color-surface);
+  border-color: var(--color-input-border);
+  color: var(--color-text);
+}
+
+.button--secondary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.button--secondary:disabled {
+  color: var(--color-disabled-text);
+}
+
+.button--small {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.button--danger {
+  color: var(--color-danger);
+}
+
+.button--danger:hover:not(:disabled) {
+  border-color: var(--color-danger);
+}
+
+/* ---------- Messages ---------- */
+
+.message {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-control);
+  font-size: 14px;
+}
+
+.message--error {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-text);
+}
+
+.message--success {
+  background: var(--color-tint);
+  color: var(--color-accent-dark);
+}
+
+/* Connect bank sits in the header; its messages wrap beneath the button. */
+.connect-bank {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Readable by screen readers, invisible on screen. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- Phone width ---------- */
+
+@media (max-width: 700px) {
+  .site-header__inner,
+  .page {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .page {
+    padding-top: 24px;
+  }
+
+  .page-title h1 {
+    font-size: 32px;
+  }
+
+  .connect-bank {
+    justify-content: flex-start;
+  }
 }

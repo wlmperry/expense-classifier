@@ -2,10 +2,26 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
+// ConnectBank fetches its own link token on mount, independently of whatever
+// a test is stubbing GET /expenses to do. Routing that call to a harmless,
+// always-successful response keeps each test's fetch stub focused on the
+// /expenses behavior it actually means to test.
+function stubPlaidLinkToken(url: string) {
+  if (!url.includes('/plaid/')) {
+    return null
+  }
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({ link_token: 'link-sandbox-test', expiration: '2026-01-01T00:00:00Z' }),
+  })
+}
+
 function stubFetch(response: { ok: boolean; status?: number; body: unknown }) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() =>
+    vi.fn((url: string) =>
+      stubPlaidLinkToken(url) ??
       Promise.resolve({
         ok: response.ok,
         status: response.status ?? 200,
@@ -97,7 +113,7 @@ describe('App', () => {
   it('shows an error state when the network request itself fails', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
+      vi.fn((url: string) => stubPlaidLinkToken(url) ?? Promise.reject(new TypeError('Failed to fetch'))),
     )
 
     render(<App />)
@@ -145,6 +161,47 @@ describe('App', () => {
 
     expect(screen.getByText('Corner Store')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'DELETE' }))
+  })
+
+  it('opens the edit form prefilled, saves, and shows the updated row', async () => {
+    const updated = { ...oneExpense, amount: '50.00' }
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      const plaidStub = stubPlaidLinkToken(url)
+      if (plaidStub) return plaidStub
+      if (init?.method === 'PATCH') {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(updated) })
+      }
+      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([oneExpense]) })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+    expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
+    expect(screen.getByRole('heading', { name: /edit expense/i })).toBeInTheDocument()
+    expect(screen.getByLabelText(/amount/i)).toHaveValue('3.50')
+
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '50.00' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    expect(await screen.findByText('50.00')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /add expense/i })).toBeInTheDocument()
+  })
+
+  it('discards changes when Cancel is clicked and keeps the original row', async () => {
+    stubFetch({ ok: true, body: [oneExpense] })
+
+    render(<App />)
+    expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
+    fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '999.99' } })
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+    expect(screen.getByRole('heading', { name: /add expense/i })).toBeInTheDocument()
+    expect(screen.getByText('3.50')).toBeInTheDocument()
+    expect(screen.queryByText('999.99')).not.toBeInTheDocument()
   })
 
   it('shows an error and keeps the expense when delete fails', async () => {
