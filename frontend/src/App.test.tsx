@@ -2,10 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
-// ConnectBank fetches its own link token on mount, independently of whatever
-// a test is stubbing GET /expenses to do. Routing that call to a harmless,
-// always-successful response keeps each test's fetch stub focused on the
-// /expenses behavior it actually means to test.
+// ConnectBank fetches its own link token lazily (on click), but a couple of
+// tests below click into an edit/save flow that can race with it. Routing
+// any such call to a harmless, always-successful response keeps each test's
+// fetch stub focused on the /expenses behavior it actually means to test.
 function stubPlaidLinkToken(url: string) {
   if (!url.includes('/plaid/')) {
     return null
@@ -202,6 +202,29 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /add expense/i })).toBeInTheDocument()
     expect(screen.getByText('3.50')).toBeInTheDocument()
     expect(screen.queryByText('999.99')).not.toBeInTheDocument()
+  })
+
+  it('cancels an in-progress edit when the expense being edited is deleted', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        status: init?.method === 'DELETE' ? 204 : 200,
+        json: () => Promise.resolve(init?.method === 'DELETE' ? undefined : [oneExpense]),
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<App />)
+    expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
+    expect(screen.getByRole('heading', { name: /edit expense/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /delete/i }))
+
+    expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /add expense/i })).toBeInTheDocument()
   })
 
   it('shows an error and keeps the expense when delete fails', async () => {

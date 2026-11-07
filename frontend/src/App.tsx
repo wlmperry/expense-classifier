@@ -43,6 +43,7 @@ function App() {
     try {
       await deleteExpense(expense.id)
       setExpenses((current) => current.filter((e) => e.id !== expense.id))
+      setEditingExpense((current) => (current?.id === expense.id ? null : current))
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : String(err))
     }

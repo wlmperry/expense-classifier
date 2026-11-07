@@ -18,6 +18,36 @@ _ISO_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 CategoryLiteral = Literal[CATEGORIES]  # type: ignore[valid-type]
 
 
+def _require_decimal_string(v: object) -> object:
+    """Shared `amount` "before" validator body for ExpenseCreate/ExpenseUpdate:
+    reject anything that isn't a decimal string, e.g. "12.34". Null-handling
+    differs between the two callers, so that check stays with each caller."""
+    if not isinstance(v, str):
+        # ValueError, not TypeError: Pydantic validators must raise
+        # ValueError/AssertionError to produce a normal 422 response --
+        # TypeError propagates as an unhandled 500 instead.
+        raise ValueError("amount must be a decimal string, e.g. \"12.34\"")  # noqa: TRY004
+    return v
+
+
+def _require_scale_at_most_two(v: Decimal) -> Decimal:
+    """Shared `amount` "after" validator body: reject more than two decimal
+    places (matches the database's `scale(amount) <= 2` check constraint)."""
+    exponent = v.as_tuple().exponent
+    if isinstance(exponent, int) and exponent < -2:
+        raise ValueError("amount must have no more than two decimal places")
+    return v
+
+
+def _require_iso_date_string(v: object) -> object:
+    """Shared `expense_date` "before" validator body: reject anything that
+    isn't an exact `YYYY-MM-DD` string. Null-handling differs between
+    ExpenseCreate and ExpenseUpdate, so that check stays with each caller."""
+    if not isinstance(v, str) or not _ISO_DATE_RE.fullmatch(v):
+        raise ValueError("expense_date must be an ISO 8601 date string (YYYY-MM-DD)")
+    return v
+
+
 class ExpenseRead(BaseModel):
     """The persisted Expense shape returned across the API boundary."""
 
@@ -59,27 +89,17 @@ class ExpenseCreate(BaseModel):
     @field_validator("amount", mode="before")
     @classmethod
     def amount_must_be_string(cls, v: object) -> object:
-        if not isinstance(v, str):
-            # ValueError, not TypeError: Pydantic validators must raise
-            # ValueError/AssertionError to produce a normal 422 response --
-            # TypeError propagates as an unhandled 500 instead.
-            raise ValueError("amount must be a decimal string, e.g. \"12.34\"")  # noqa: TRY004
-        return v
+        return _require_decimal_string(v)
 
     @field_validator("amount", mode="after")
     @classmethod
     def amount_scale_must_not_exceed_two(cls, v: Decimal) -> Decimal:
-        exponent = v.as_tuple().exponent
-        if isinstance(exponent, int) and exponent < -2:
-            raise ValueError("amount must have no more than two decimal places")
-        return v
+        return _require_scale_at_most_two(v)
 
     @field_validator("expense_date", mode="before")
     @classmethod
     def expense_date_must_be_iso_string(cls, v: object) -> object:
-        if not isinstance(v, str) or not _ISO_DATE_RE.fullmatch(v):
-            raise ValueError("expense_date must be an ISO 8601 date string (YYYY-MM-DD)")
-        return v
+        return _require_iso_date_string(v)
 
 
 class ExpenseUpdate(BaseModel):
@@ -115,26 +135,19 @@ class ExpenseUpdate(BaseModel):
     def amount_must_be_non_null_string(cls, v: object) -> object:
         if v is None:
             raise ValueError("amount must not be null")
-        if not isinstance(v, str):
-            raise ValueError("amount must be a decimal string, e.g. \"12.34\"")  # noqa: TRY004
-        return v
+        return _require_decimal_string(v)
 
     @field_validator("amount", mode="after")
     @classmethod
     def amount_scale_must_not_exceed_two(cls, v: Decimal) -> Decimal:
-        exponent = v.as_tuple().exponent
-        if isinstance(exponent, int) and exponent < -2:
-            raise ValueError("amount must have no more than two decimal places")
-        return v
+        return _require_scale_at_most_two(v)
 
     @field_validator("expense_date", mode="before")
     @classmethod
     def expense_date_must_be_non_null_iso_string(cls, v: object) -> object:
         if v is None:
             raise ValueError("expense_date must not be null")
-        if not isinstance(v, str) or not _ISO_DATE_RE.fullmatch(v):
-            raise ValueError("expense_date must be an ISO 8601 date string (YYYY-MM-DD)")
-        return v
+        return _require_iso_date_string(v)
 
     @field_validator("category", mode="before")
     @classmethod

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { usePlaidLink } from "react-plaid-link"
 import { createPlaidLinkToken, exchangePublicToken, syncPlaidTransactions } from "./api"
 import type { Expense } from "./types"
@@ -15,15 +15,39 @@ interface ConnectBankProps {
 
 function ConnectBank({ onImported }: ConnectBankProps) {
   const [linkToken, setLinkToken] = useState<string | null>(null)
+  const [fetchingToken, setFetchingToken] = useState(false)
+  // Set after a fresh link token is fetched, so the effect below opens Link
+  // as soon as usePlaidLink reports ready -- which only happens once it's
+  // re-initialized with a real (non-empty) token. A ref, not state: it's
+  // only ever read/cleared from the effect that reacts to `ready`, so it
+  // doesn't need to trigger a render itself.
+  const pendingOpenRef = useRef(false)
   const [status, setStatus] = useState<"idle" | "connecting" | "syncing" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const [importedCount, setImportedCount] = useState<number | null>(null)
 
-  useEffect(() => {
-    createPlaidLinkToken()
-      .then((response) => setLinkToken(response.link_token))
-      .catch((err: Error) => setError(err.message))
-  }, [])
+  // The link token is fetched lazily, on click, rather than on mount: a
+  // backend with no Plaid credentials configured would otherwise show every
+  // visitor a permanent error banner, even one who never intends to connect
+  // a bank.
+  async function handleConnectClick() {
+    if (linkToken !== null) {
+      open()
+      return
+    }
+    setError(null)
+    setFetchingToken(true)
+    try {
+      const response = await createPlaidLinkToken()
+      pendingOpenRef.current = true
+      setLinkToken(response.link_token)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+      setStatus("error")
+    } finally {
+      setFetchingToken(false)
+    }
+  }
 
   async function handleSuccess(publicToken: string | null) {
     if (publicToken === null) {
@@ -56,6 +80,13 @@ function ConnectBank({ onImported }: ConnectBankProps) {
     onSuccess: handleSuccess,
   })
 
+  useEffect(() => {
+    if (pendingOpenRef.current && ready) {
+      pendingOpenRef.current = false
+      open()
+    }
+  }, [ready, open])
+
   const busy = status === "connecting" || status === "syncing"
 
   return (
@@ -70,7 +101,11 @@ function ConnectBank({ onImported }: ConnectBankProps) {
           Imported {importedCount} transaction{importedCount === 1 ? "" : "s"}.
         </p>
       )}
-      <button className="button button--primary" onClick={() => open()} disabled={!ready || busy}>
+      <button
+        className="button button--primary"
+        onClick={handleConnectClick}
+        disabled={busy || fetchingToken}
+      >
         {status === "connecting" && "Connecting..."}
         {status === "syncing" && "Importing transactions..."}
         {status === "idle" && "Connect bank"}

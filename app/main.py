@@ -1,9 +1,13 @@
+import json
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import date
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, TypeVar
 
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from plaid.exceptions import ApiException
 from plaid.model.country_code import CountryCode
 from plaid.model.item_public_token_exchange_request import (
     ItemPublicTokenExchangeRequest,
@@ -14,11 +18,12 @@ from plaid.model.products import Products
 from plaid.model.sandbox_public_token_create_request import (
     SandboxPublicTokenCreateRequest,
 )
+from plaid.model.transaction import Transaction
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import require_auth_token
+from app.auth import get_api_token, require_auth_token
 from app.categorize import classify
 from app.database import get_db
 from app.models import Expense, PlaidItem
@@ -39,11 +44,80 @@ SortOption = Literal["expense_date", "-expense_date", "amount", "-amount"]
 # meaningful in Sandbox -- it doesn't exist in Production.
 _SANDBOX_INSTITUTION_ID = "ins_109508"
 
-app = FastAPI()
+_PlaidResult = TypeVar("_PlaidResult")
+
+
+def _call_plaid(operation: Callable[[], _PlaidResult], *, action: str) -> _PlaidResult:
+    """Run a Plaid SDK call, translating failures into a clean HTTPException
+    instead of an unhandled 500.
+
+    RuntimeError is what get_plaid_client() itself raises when
+    PLAID_CLIENT_ID/PLAID_SECRET aren't configured -- a server
+    misconfiguration, not the caller's fault, but still worth a clear detail.
+    ApiException is what the Plaid SDK raises for an API-level failure (an
+    invalid/expired public_token, ITEM_LOGIN_REQUIRED, etc).
+    """
+    try:
+        return operation()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Could not {action}: Plaid is not configured ({exc})",
+        ) from exc
+    except ApiException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Could not {action}: {_plaid_error_detail(exc)}",
+        ) from exc
+
+
+def _plaid_error_detail(exc: ApiException) -> str:
+    """Pull Plaid's own error_message out of an ApiException's response
+    body when present, falling back to the HTTP reason phrase."""
+    if exc.body:
+        try:
+            body = json.loads(exc.body)
+        except (TypeError, ValueError):
+            body = None
+        if isinstance(body, dict) and body.get("error_message"):
+            return body["error_message"]
+    return exc.reason or "Plaid request failed"
+
+
+def _expense_from_transaction(transaction: Transaction) -> Expense | None:
+    """Build an unsaved Expense from a Plaid transaction, or None if it's
+    not an outflow (amount > 0, Plaid's convention for money leaving the
+    account) -- deposits and refunds aren't expenses. Plaid already tags
+    each transaction with its own category, but it's deliberately ignored
+    here in favor of this project's own classifier."""
+    if transaction.amount <= 0:
+        return None
+    merchant = transaction.merchant_name or transaction.name
+    return Expense(
+        merchant=merchant,
+        description=transaction.name,
+        amount=Decimal(str(transaction.amount)).quantize(Decimal("0.01")),
+        expense_date=transaction.date,
+        category=classify(merchant, transaction.name),
+        plaid_transaction_id=transaction.transaction_id,
+    )
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Fails fast at startup, like app/database.py's engine construction
+    # already does for DATABASE_URL, instead of on the first protected
+    # request. Not checked at import time: tests override API_AUTH_TOKEN
+    # per-test, after this module has already been imported.
+    get_api_token()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -193,7 +267,10 @@ def create_plaid_link_token() -> PlaidLinkTokenResponse:
         user=LinkTokenCreateRequestUser(client_user_id="demo-user"),
         products=[Products("transactions")],
     )
-    response = get_plaid_client().link_token_create(request)
+    response = _call_plaid(
+        lambda: get_plaid_client().link_token_create(request),
+        action="create Plaid link token",
+    )
     return PlaidLinkTokenResponse(
         link_token=response.link_token, expiration=response.expiration
     )
@@ -213,7 +290,10 @@ def create_sandbox_public_token() -> PlaidSandboxPublicTokenResponse:
         institution_id=_SANDBOX_INSTITUTION_ID,
         initial_products=[Products("transactions")],
     )
-    response = get_plaid_client().sandbox_public_token_create(request)
+    response = _call_plaid(
+        lambda: get_plaid_client().sandbox_public_token_create(request),
+        action="create Plaid sandbox public token",
+    )
     return PlaidSandboxPublicTokenResponse(public_token=response.public_token)
 
 
@@ -227,9 +307,23 @@ def exchange_public_token(
 ) -> PlaidExchangePublicTokenResponse:
     """Exchange a short-lived public_token for a durable access_token, and
     persist the resulting Item so later syncs can use it.
+
+    item_id is checked for an existing row first: relinking the same bank
+    returns the same item_id from Plaid, and inserting it again would hit
+    PlaidItem.item_id's unique constraint. Returning the existing Item
+    instead makes this endpoint idempotent rather than erroring.
     """
     request = ItemPublicTokenExchangeRequest(public_token=payload.public_token)
-    response = get_plaid_client().item_public_token_exchange(request)
+    response = _call_plaid(
+        lambda: get_plaid_client().item_public_token_exchange(request),
+        action="exchange Plaid public token",
+    )
+
+    existing = db.execute(
+        select(PlaidItem).where(PlaidItem.item_id == response.item_id)
+    ).scalar_one_or_none()
+    if existing is not None:
+        return PlaidExchangePublicTokenResponse(item_id=existing.item_id)
 
     item = PlaidItem(item_id=response.item_id, access_token=response.access_token)
     db.add(item)
@@ -243,16 +337,23 @@ def exchange_public_token(
     dependencies=[Depends(require_auth_token)],
 )
 def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> PlaidSyncResponse:
-    """Pull new transactions for a linked Item and persist each as a
-    categorized Expense.
+    """Pull every new, changed, and removed transaction for a linked Item
+    since its last sync, and apply each to this project's own Expense rows.
 
-    transactions_sync is cursor-based: an empty cursor (the first call for
-    this Item) returns everything available; passing back the cursor from
-    a previous call returns only what changed since then. Only outflows
-    (amount > 0, Plaid's convention for money leaving the account) become
-    Expenses -- deposits and refunds aren't expenses. Plaid already tags
-    each transaction with its own category, but it's deliberately ignored
-    here in favor of this project's own classifier.
+    transactions_sync is cursor-based and paginated: an empty cursor (the
+    first call for this Item) returns everything available; passing back
+    the cursor from a previous call returns only what changed since then.
+    has_more indicates another page is waiting, so this loops -- following
+    Plaid's documented pagination contract -- until a response says
+    has_more is false. Each transaction is looked up by its own Plaid
+    transaction_id (not the Expense id) so a transaction already imported
+    by an earlier sync is updated in place instead of duplicated, and a
+    transaction Plaid later removes (e.g. a pending charge that never
+    posts) is deleted here too.
+
+    added_count/added describe only genuinely new Expenses -- a modified
+    transaction that already has a matching Expense updates it in place
+    without counting as "added".
     """
     item = db.execute(
         select(PlaidItem).where(PlaidItem.item_id == item_id)
@@ -262,28 +363,69 @@ def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> Plai
             status_code=status.HTTP_404_NOT_FOUND, detail="Plaid item not found"
         )
 
-    request = TransactionsSyncRequest(access_token=item.access_token, cursor=item.cursor or "")
-    response = get_plaid_client().transactions_sync(request)
-
-    added_expenses = []
-    for transaction in response.added:
-        if transaction.amount <= 0:
-            continue
-        merchant = transaction.merchant_name or transaction.name
-        expense = Expense(
-            merchant=merchant,
-            description=transaction.name,
-            amount=Decimal(str(transaction.amount)).quantize(Decimal("0.01")),
-            expense_date=transaction.date,
-            category=classify(merchant, transaction.name),
+    new_expenses: list[Expense] = []
+    cursor = item.cursor or ""
+    has_more = True
+    while has_more:
+        request = TransactionsSyncRequest(access_token=item.access_token, cursor=cursor)
+        response = _call_plaid(
+            lambda req=request: get_plaid_client().transactions_sync(req),
+            action="sync Plaid transactions",
         )
-        db.add(expense)
-        added_expenses.append(expense)
 
-    item.cursor = response.next_cursor
+        for transaction in response.added:
+            if _find_expense_by_transaction_id(db, transaction.transaction_id) is not None:
+                continue  # already imported by an earlier call in this same loop/sync
+            expense = _expense_from_transaction(transaction)
+            if expense is None:
+                continue  # not an outflow
+            db.add(expense)
+            new_expenses.append(expense)
+
+        for transaction in response.modified:
+            existing = _find_expense_by_transaction_id(db, transaction.transaction_id)
+            if existing is None:
+                expense = _expense_from_transaction(transaction)
+                if expense is None:
+                    continue
+                db.add(expense)
+                new_expenses.append(expense)
+                continue
+            if transaction.amount <= 0:
+                db.delete(existing)
+                if existing in new_expenses:
+                    new_expenses.remove(existing)
+                continue
+            merchant = transaction.merchant_name or transaction.name
+            existing.merchant = merchant
+            existing.description = transaction.name
+            existing.amount = Decimal(str(transaction.amount)).quantize(Decimal("0.01"))
+            existing.expense_date = transaction.date
+            existing.category = classify(merchant, transaction.name)
+
+        for removed in response.removed:
+            existing = _find_expense_by_transaction_id(db, removed.transaction_id)
+            if existing is not None:
+                db.delete(existing)
+                if existing in new_expenses:
+                    new_expenses.remove(existing)
+
+        cursor = response.next_cursor
+        has_more = response.has_more
+
+    item.cursor = cursor
+    # flush (not commit) first: it assigns each new Expense's id via
+    # RETURNING without expiring any attribute, so ExpenseRead can read
+    # every field straight off these objects with no extra per-row SELECT.
+    db.flush()
+    results = [ExpenseRead.model_validate(expense) for expense in new_expenses]
     db.commit()
-    for expense in added_expenses:
-        db.refresh(expense)
 
-    return PlaidSyncResponse(added_count=len(added_expenses), added=added_expenses)
+    return PlaidSyncResponse(added_count=len(results), added=results)
+
+
+def _find_expense_by_transaction_id(db: Session, transaction_id: str) -> Expense | None:
+    return db.execute(
+        select(Expense).where(Expense.plaid_transaction_id == transaction_id)
+    ).scalar_one_or_none()
 

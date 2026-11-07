@@ -25,6 +25,16 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_api_token() -> str:
+    """Read the shared bearer token from the environment.
+
+    Deliberately not cached at import time (unlike app/database.py's
+    get_database_url(), which builds the module-level engine): tests
+    override API_AUTH_TOKEN per-test via monkeypatch, after app.main has
+    already been imported, so a value snapshotted at import time would be
+    stale by the time a test's request runs. app/main.py's lifespan calls
+    this once at application startup instead, so a missing token still
+    fails fast there rather than on the first protected request.
+    """
     token = os.environ.get("API_AUTH_TOKEN")
     if not token:
         raise RuntimeError(

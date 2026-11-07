@@ -52,7 +52,7 @@ describe("ConnectBank", () => {
     usePlaidLinkMock.mockReset()
   })
 
-  it("fetches a link token on mount", async () => {
+  it("does not fetch a link token on mount", async () => {
     stubUsePlaidLink()
     const fetchMock = stubFetchSequence([
       { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
@@ -61,10 +61,38 @@ describe("ConnectBank", () => {
     render(<ConnectBank onImported={() => {}} />)
 
     await screen.findByRole("button", { name: /connect bank/i })
-    expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/plaid/link-token`, {
-      method: "POST",
-      headers: { Authorization: "Bearer " },
-    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("fetches a link token when Connect bank is clicked", async () => {
+    stubUsePlaidLink()
+    const fetchMock = stubFetchSequence([
+      { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
+    ])
+
+    render(<ConnectBank onImported={() => {}} />)
+    screen.getByRole("button", { name: /connect bank/i }).click()
+
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/plaid/link-token`, {
+        method: "POST",
+        headers: { Authorization: "Bearer " },
+      }),
+    )
+  })
+
+  it("shows an error, without a permanent banner before any click, when fetching the link token fails", async () => {
+    stubUsePlaidLink()
+    stubFetchSequence([{ ok: false, status: 500, body: null }])
+
+    render(<ConnectBank onImported={() => {}} />)
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+
+    screen.getByRole("button", { name: /connect bank/i }).click()
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /failed to create plaid link token: 500/i,
+    )
   })
 
   it("exchanges the public token, syncs, and reports imported expenses", async () => {
@@ -97,6 +125,11 @@ describe("ConnectBank", () => {
     render(<ConnectBank onImported={onImported} />)
     screen.getByRole("button", { name: /connect bank/i }).click()
 
+    // Let the click-triggered token fetch, Link open, exchange, and first
+    // (empty) sync all settle before advancing the clock, so the full
+    // 2000ms retry delay -- not whatever's left of it -- is what gets
+    // advanced past.
+    await screen.findByText(/importing transactions/i)
     await vi.advanceTimersByTimeAsync(2000)
 
     expect(await screen.findByRole("status")).toHaveTextContent(/imported 1 transaction/i)

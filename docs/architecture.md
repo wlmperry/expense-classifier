@@ -280,10 +280,17 @@ under deadline pressure -- see the branch's own history for that decision):
   /expenses/{id}`, so an out-of-range id is rejected with `422` instead of a
   database error.
 
-These are the only API decisions established so far. Authentication remains undecided.
+These are the only API decisions established so far.
+
+Authentication is established too, as a stopgap rather than a long-term design: every route
+except `GET /` requires a shared bearer token (`app/auth.py`, `API_AUTH_TOKEN`), checked
+against a single value every client uses. This is not a user/account system -- there is still
+no concept of a user who owns an Expense -- it exists only to keep the shared dataset from
+being casually corrupted once the backend is reachable on the public internet. A real
+user/account auth system remains undecided.
 
 ## Not decided yet
 
-`GET /expenses`, `POST /expenses`, and `PATCH /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend, other endpoints, further request/response schemas, repository layout, and deployment remain undecided. They will be documented here as they are established, rather than guessed at now.
+`GET /expenses`, `POST /expenses`, and `PATCH /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). Other endpoints, further request/response schemas, repository layout, and deployment remain undecided. They will be documented here as they are established, rather than guessed at now.
 
 Schema and design for Receipt, Transaction, categorization, and every other concept listed under "Deferred from this contract" above remain entirely undecided.

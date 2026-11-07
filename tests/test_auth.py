@@ -5,6 +5,11 @@ require_auth_token dependency in place -- every other test uses the plain
 client fixture, which overrides it to a no-op.
 """
 
+import pytest
+from fastapi.testclient import TestClient
+
+from app.main import app
+
 VALID_PAYLOAD = {
     "merchant": "DOLLAR GENERAL STORE #16600",
     "description": "S RED BULL 8.4C",
@@ -50,3 +55,13 @@ def test_read_root_requires_no_token(unauthenticated_client):
     response = unauthenticated_client.get("/")
 
     assert response.status_code == 200
+
+
+def test_app_startup_fails_fast_when_api_auth_token_is_missing(monkeypatch):
+    # TestClient only runs ASGI lifespan (startup/shutdown) when entered as
+    # a context manager -- the plain `client`/`unauthenticated_client`
+    # fixtures never do, which is exactly why they're unaffected by this.
+    monkeypatch.delenv("API_AUTH_TOKEN", raising=False)
+
+    with pytest.raises(RuntimeError, match="API_AUTH_TOKEN is not set"), TestClient(app):
+        pass

@@ -28,6 +28,11 @@ class Expense(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
     expense_date: Mapped[date] = mapped_column(Date, nullable=False)
     category: Mapped[str] = mapped_column(String, nullable=False)
+    # Only set for expenses imported via Plaid sync; lets a later sync look
+    # a transaction up to dedupe it, apply a Plaid-side edit, or delete it.
+    plaid_transaction_id: Mapped[str | None] = mapped_column(
+        String, nullable=True, unique=True
+    )
 
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_expenses_amount_positive"),
