@@ -40,3 +40,22 @@ def test_cors_preflight_allows_delete_from_frontend_origin():
     assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
     assert "DELETE" in response.headers["access-control-allow-methods"]
 
+
+def test_cors_preflight_allows_authorization_header():
+    # Every real request from the frontend carries an `Authorization: Bearer
+    # ...` header (see frontend/src/api.ts), so the browser's preflight asks
+    # for permission to send it. TestClient's normal requests don't send an
+    # Origin header, so this preflight case is the one the plain request
+    # tests above can't catch.
+    response = client.options(
+        "/expenses",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+    assert response.status_code == 200
+    allowed_headers = response.headers["access-control-allow-headers"].lower()
+    assert "authorization" in allowed_headers
+
