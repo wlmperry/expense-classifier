@@ -52,21 +52,31 @@ describe("ConnectBank", () => {
     usePlaidLinkMock.mockReset()
   })
 
-  it("does not fetch a link token on mount", async () => {
+  it("fetches linked status on mount, and does not fetch a link token until clicked", async () => {
     stubUsePlaidLink()
     const fetchMock = stubFetchSequence([
+      { ok: true, body: { item_id: null } },
       { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
     ])
 
     render(<ConnectBank onImported={() => {}} />)
 
     await screen.findByRole("button", { name: /connect bank/i })
-    expect(fetchMock).not.toHaveBeenCalled()
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/plaid/item`, {
+        headers: { Authorization: "Bearer " },
+      }),
+    )
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `${API_BASE_URL}/plaid/link-token`,
+      expect.anything(),
+    )
   })
 
   it("fetches a link token when Connect bank is clicked", async () => {
     stubUsePlaidLink()
     const fetchMock = stubFetchSequence([
+      { ok: true, body: { item_id: null } },
       { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
     ])
 
@@ -81,9 +91,40 @@ describe("ConnectBank", () => {
     )
   })
 
+  it("disables Connect bank, without fetching a link token, when a bank is already linked", async () => {
+    stubUsePlaidLink()
+    const fetchMock = stubFetchSequence([{ ok: true, body: { item_id: "item-existing" } }])
+
+    render(<ConnectBank onImported={() => {}} />)
+
+    const button = await screen.findByRole("button", { name: /bank connected/i })
+    expect(button).toBeDisabled()
+
+    button.click()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("disables Connect bank immediately after a successful link, so it can't be clicked again", async () => {
+    stubUsePlaidLink()
+    stubFetchSequence([
+      { ok: true, body: { item_id: null } },
+      { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
+      { ok: true, body: { item_id: "item-abc" } },
+      { ok: true, body: { added_count: 1, added: [IMPORTED_EXPENSE] } },
+    ])
+
+    render(<ConnectBank onImported={() => {}} />)
+    screen.getByRole("button", { name: /connect bank/i }).click()
+
+    expect(await screen.findByRole("button", { name: /bank connected/i })).toBeDisabled()
+  })
+
   it("shows an error, without a permanent banner before any click, when fetching the link token fails", async () => {
     stubUsePlaidLink()
-    stubFetchSequence([{ ok: false, status: 500, body: null }])
+    stubFetchSequence([
+      { ok: true, body: { item_id: null } },
+      { ok: false, status: 500, body: null },
+    ])
 
     render(<ConnectBank onImported={() => {}} />)
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
@@ -98,6 +139,7 @@ describe("ConnectBank", () => {
   it("exchanges the public token, syncs, and reports imported expenses", async () => {
     stubUsePlaidLink()
     stubFetchSequence([
+      { ok: true, body: { item_id: null } },
       { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
       { ok: true, body: { item_id: "item-abc" } },
       { ok: true, body: { added_count: 1, added: [IMPORTED_EXPENSE] } },
@@ -115,6 +157,7 @@ describe("ConnectBank", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     stubUsePlaidLink()
     stubFetchSequence([
+      { ok: true, body: { item_id: null } },
       { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
       { ok: true, body: { item_id: "item-abc" } },
       { ok: true, body: { added_count: 0, added: [] } },
@@ -140,6 +183,7 @@ describe("ConnectBank", () => {
   it("shows an error when exchanging the public token fails", async () => {
     stubUsePlaidLink()
     stubFetchSequence([
+      { ok: true, body: { item_id: null } },
       { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
       { ok: false, status: 500, body: null },
     ])

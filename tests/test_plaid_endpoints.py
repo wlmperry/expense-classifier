@@ -53,6 +53,22 @@ def _sync_response(*, added=(), modified=(), removed=(), next_cursor="cursor-1",
     )
 
 
+def test_get_plaid_item_status_returns_null_when_nothing_linked(client, db_session):
+    response = client.get("/plaid/item")
+
+    assert response.status_code == 200
+    assert response.json() == {"item_id": None}
+
+
+def test_get_plaid_item_status_returns_the_linked_item_id(client, db_session):
+    _seed_plaid_item(db_session, item_id="item-abc123")
+
+    response = client.get("/plaid/item")
+
+    assert response.status_code == 200
+    assert response.json() == {"item_id": "item-abc123"}
+
+
 def test_create_link_token_returns_link_token_and_expiration(client, mock_plaid_client):
     expiration = datetime(2026, 11, 2, 18, 0, 0, tzinfo=timezone.utc)
     mock_plaid_client.link_token_create.return_value = SimpleNamespace(

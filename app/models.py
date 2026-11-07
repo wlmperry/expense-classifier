@@ -7,7 +7,7 @@ accepted field meanings and invariants this model must preserve.
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, Numeric, String
+from sqlalchemy import CheckConstraint, Date, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.categorize import CATEGORIES
@@ -30,9 +30,7 @@ class Expense(Base):
     category: Mapped[str] = mapped_column(String, nullable=False)
     # Only set for expenses imported via Plaid sync; lets a later sync look
     # a transaction up to dedupe it, apply a Plaid-side edit, or delete it.
-    plaid_transaction_id: Mapped[str | None] = mapped_column(
-        String, nullable=True, unique=True
-    )
+    plaid_transaction_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
     __table_args__ = (
         CheckConstraint("amount > 0", name="ck_expenses_amount_positive"),
@@ -48,6 +46,14 @@ class Expense(Base):
         ),
         CheckConstraint(
             f"category IN ({_CATEGORY_LIST_SQL})", name="ck_expenses_category_allowed"
+        ),
+        # Named explicitly (rather than mapped_column(unique=True), which
+        # leaves Postgres to pick its own default name) so this matches the
+        # name the migration gives the same constraint -- Base has no
+        # naming convention, so the two would otherwise diverge and alembic
+        # autogenerate would see a phantom difference.
+        UniqueConstraint(
+            "plaid_transaction_id", name="uq_expenses_plaid_transaction_id"
         ),
     )
 

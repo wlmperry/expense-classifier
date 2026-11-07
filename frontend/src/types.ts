@@ -32,6 +32,10 @@ export type ExpenseCreate = Omit<Expense, "id" | "category"> & { category?: Cate
 // always-optional-but-unused.
 export type ExpenseUpdate = Partial<Omit<Expense, "id" | "category">>
 
+export interface PlaidItemStatusResponse {
+    item_id: string | null
+}
+
 export interface PlaidLinkTokenResponse {
     link_token: string
     expiration: string

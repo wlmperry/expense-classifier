@@ -4,6 +4,7 @@ import type {
     ExpenseCreate,
     ExpenseUpdate,
     PlaidExchangePublicTokenResponse,
+    PlaidItemStatusResponse,
     PlaidLinkTokenResponse,
     PlaidSyncResponse,
 } from "./types"
@@ -54,6 +55,14 @@ export async function deleteExpense(id: number): Promise<void> {
     if (!response.ok) {
         throw new Error(`Failed to delete expense: ${response.status}`)
     }
+}
+
+export async function getPlaidItemStatus(): Promise<PlaidItemStatusResponse> {
+    const response = await apiFetch("/plaid/item")
+    if (!response.ok) {
+        throw new Error(`Failed to fetch Plaid item status: ${response.status}`)
+    }
+    return response.json()
 }
 
 export async function createPlaidLinkToken(): Promise<PlaidLinkTokenResponse> {

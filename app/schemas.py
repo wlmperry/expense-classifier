@@ -163,6 +163,15 @@ class ExpenseUpdate(BaseModel):
         return self
 
 
+class PlaidItemStatusResponse(BaseModel):
+    """Whether this project's single demo user already has a bank linked.
+
+    item_id is None when no Item has ever been linked.
+    """
+
+    item_id: str | None
+
+
 class PlaidLinkTokenResponse(BaseModel):
     """What the frontend needs to open Plaid Link."""
 

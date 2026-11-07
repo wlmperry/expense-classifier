@@ -34,6 +34,7 @@ from app.schemas import (
     ExpenseUpdate,
     PlaidExchangePublicTokenRequest,
     PlaidExchangePublicTokenResponse,
+    PlaidItemStatusResponse,
     PlaidLinkTokenResponse,
     PlaidSandboxPublicTokenResponse,
     PlaidSyncResponse,
@@ -251,6 +252,24 @@ def delete_expense(
 
     db.delete(expense)
     db.commit()
+
+
+@app.get("/plaid/item", dependencies=[Depends(require_auth_token)])
+def get_plaid_item_status(db: Session = Depends(get_db)) -> PlaidItemStatusResponse:
+    """Report whether this project's single demo user already has a bank
+    linked, so the frontend can disable Connect bank instead of letting a
+    second Link session run.
+
+    This matters because a repeat Link session mints a brand-new item_id
+    with its own fresh transaction_ids -- exchange_public_token's
+    idempotency check (same item_id already saved) never gets a chance to
+    fire, and dedup-by-transaction_id in the sync endpoint can't catch
+    transaction_ids it's never seen before. Only one Item is ever expected
+    to exist (client_user_id is hardcoded below), so the first one found is
+    reported.
+    """
+    item = db.execute(select(PlaidItem).order_by(PlaidItem.id)).scalars().first()
+    return PlaidItemStatusResponse(item_id=item.item_id if item is not None else None)
 
 
 @app.post("/plaid/link-token", dependencies=[Depends(require_auth_token)])

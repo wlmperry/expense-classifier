@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react"
 import { usePlaidLink } from "react-plaid-link"
-import { createPlaidLinkToken, exchangePublicToken, syncPlaidTransactions } from "./api"
+import {
+  createPlaidLinkToken,
+  exchangePublicToken,
+  getPlaidItemStatus,
+  syncPlaidTransactions,
+} from "./api"
 import type { Expense } from "./types"
 
 // Plaid Sandbox populates a newly linked item's transaction history
@@ -25,12 +30,32 @@ function ConnectBank({ onImported }: ConnectBankProps) {
   const [status, setStatus] = useState<"idle" | "connecting" | "syncing" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const [importedCount, setImportedCount] = useState<number | null>(null)
+  // Only one Item is ever expected for this project's single demo user (see
+  // create_plaid_link_token's hardcoded client_user_id). Once one exists --
+  // from an earlier session or from this one -- Connect bank is disabled:
+  // a second Link session mints a brand-new item_id with its own fresh
+  // transaction_ids, so neither exchange_public_token's same-item_id check
+  // nor the sync endpoint's dedup-by-transaction_id can catch a second
+  // linking of the same bank the way they catch a repeat of the same Item.
+  const [linkedItemId, setLinkedItemId] = useState<string | null>(null)
+
+  useEffect(() => {
+    getPlaidItemStatus()
+      .then((result) => setLinkedItemId(result.item_id))
+      .catch(() => {
+        // Leave linkedItemId as null: Connect bank stays clickable, same as
+        // before this status check existed.
+      })
+  }, [])
 
   // The link token is fetched lazily, on click, rather than on mount: a
   // backend with no Plaid credentials configured would otherwise show every
   // visitor a permanent error banner, even one who never intends to connect
   // a bank.
   async function handleConnectClick() {
+    if (linkedItemId !== null) {
+      return
+    }
     if (linkToken !== null) {
       open()
       return
@@ -58,6 +83,7 @@ function ConnectBank({ onImported }: ConnectBankProps) {
     setImportedCount(null)
     try {
       const { item_id } = await exchangePublicToken(publicToken)
+      setLinkedItemId(item_id)
 
       setStatus("syncing")
       let result = await syncPlaidTransactions(item_id)
@@ -88,6 +114,7 @@ function ConnectBank({ onImported }: ConnectBankProps) {
   }, [ready, open])
 
   const busy = status === "connecting" || status === "syncing"
+  const alreadyLinked = linkedItemId !== null
 
   return (
     <div className="connect-bank">
@@ -104,11 +131,11 @@ function ConnectBank({ onImported }: ConnectBankProps) {
       <button
         className="button button--primary"
         onClick={handleConnectClick}
-        disabled={busy || fetchingToken}
+        disabled={busy || fetchingToken || alreadyLinked}
       >
         {status === "connecting" && "Connecting..."}
         {status === "syncing" && "Importing transactions..."}
-        {status === "idle" && "Connect bank"}
+        {status === "idle" && (alreadyLinked ? "Bank connected" : "Connect bank")}
         {status === "error" && "Connect bank"}
       </button>
     </div>
