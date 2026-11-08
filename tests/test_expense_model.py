@@ -62,6 +62,21 @@ def test_amount_with_more_than_two_decimal_places_is_rejected(db_session, amount
         db_session.flush()
 
 
+@pytest.mark.parametrize("confidence", [Decimal("-0.01"), Decimal("1.01")])
+def test_confidence_outside_zero_to_one_is_rejected(db_session, confidence):
+    db_session.add(Expense(**{**VALID_KWARGS, "confidence": confidence}))
+
+    with pytest.raises(IntegrityError):
+        db_session.flush()
+
+
+@pytest.mark.parametrize("confidence", [Decimal(0), Decimal(1), Decimal("0.5"), None])
+def test_confidence_within_zero_to_one_or_null_is_accepted(db_session, confidence):
+    db_session.add(Expense(**{**VALID_KWARGS, "confidence": confidence}))
+
+    db_session.flush()  # must not raise
+
+
 @pytest.mark.parametrize("merchant", ["", "   "])
 def test_blank_merchant_is_rejected(db_session, merchant):
     db_session.add(Expense(**{**VALID_KWARGS, "merchant": merchant}))

@@ -280,6 +280,24 @@ under deadline pressure -- see the branch's own history for that decision):
   /expenses/{id}`, so an out-of-range id is rejected with `422` instead of a
   database error.
 
+Categorization is established too, as a rule-based baseline rather than a trained model
+(Issue #45, building on the classifier added on `demo/plaid-ml-mvp`): `app/categorize.py`
+matches keywords in the merchant/description text against a fixed per-category keyword list.
+Alongside the category, it reports a **confidence** score derived purely from how many
+categories' keywords matched and how many keywords within the chosen one did -- not a
+statistical probability, just a way to flag an ambiguous or unmatched guess as less trustworthy
+than a clean match: `0.9` for multiple keyword hits in one, uncontested category, `0.75` for a
+single keyword hit in one, uncontested category, `0.5` when more than one category's keywords
+matched (the first by rule order is still returned, unchanged from before confidence existed),
+and `0.2` when nothing matched and the result fell back to `"Other"`. `confidence` is `null`
+whenever a category wasn't the classifier's own guess: a client-supplied `category` on
+`POST /expenses`, or any `PATCH /expenses/{id}` that sets `category`, nulls it out, since a
+human-confirmed category has no guess attached to it worth scoring. It is persisted on the
+`expenses` row (computed once, like `category` itself, not recomputed on every read) and
+included in `ExpenseRead`. The machine-learned classifier scikit-learn is meant for (see "Not
+decided yet" below) would replace this baseline and its confidence heuristic together, not
+layer on top of them.
+
 These are the established Expense-resource API decisions. Authentication and deployment
 decisions follow below.
 
@@ -322,4 +340,4 @@ Double-check that variable is set correctly after any change to the Static Site'
 
 `GET /expenses`, `POST /expenses`, `PATCH /expenses/{id}`, and `DELETE /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). Backend and frontend deployment are established too (see above). Other endpoints, further request/response schemas, and repository layout remain undecided. They will be documented here as they are established, rather than guessed at now.
 
-Schema and design for Receipt, Transaction, categorization, and every other concept listed under "Deferred from this contract" above remain entirely undecided.
+Schema and design for Receipt, Transaction, and every other concept listed under "Deferred from this contract" above remain entirely undecided. Categorization itself is no longer in that list -- see "Established API decisions" above for the rule-based baseline and its confidence score; only the later machine-learned classifier remains undecided.

@@ -24,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import get_api_token, require_auth_token
-from app.categorize import classify
+from app.categorize import classify_with_confidence
 from app.database import get_db
 from app.models import Expense, PlaidItem
 from app.plaid_client import get_plaid_client
@@ -94,12 +94,14 @@ def _expense_from_transaction(transaction: Transaction) -> Expense | None:
     if transaction.amount <= 0:
         return None
     merchant = transaction.merchant_name or transaction.name
+    category, confidence = classify_with_confidence(merchant, transaction.name)
     return Expense(
         merchant=merchant,
         description=transaction.name,
         amount=Decimal(str(transaction.amount)).quantize(Decimal("0.01")),
         expense_date=transaction.date,
-        category=classify(merchant, transaction.name),
+        category=category,
+        confidence=Decimal(str(confidence)),
         plaid_transaction_id=transaction.transaction_id,
     )
 
@@ -192,13 +194,18 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> Exp
     See docs/architecture.md's Expense contract and "Established API
     decisions" for the request/response shape and wire-format guarantees.
     """
-    category = payload.category or classify(payload.merchant, payload.description)
+    if payload.category is not None:
+        category, confidence = payload.category, None
+    else:
+        category, score = classify_with_confidence(payload.merchant, payload.description)
+        confidence = Decimal(str(score))
     expense = Expense(
         merchant=payload.merchant,
         description=payload.description,
         amount=payload.amount,
         expense_date=payload.expense_date,
         category=category,
+        confidence=confidence,
     )
     db.add(expense)
     db.commit()
@@ -225,8 +232,15 @@ def update_expense(
             status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
         )
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
         setattr(expense, field, value)
+    if "category" in updates:
+        # A human just chose this category explicitly, so whatever
+        # confidence the classifier originally reported no longer
+        # describes it -- showing a stale guess next to a human decision
+        # would be misleading.
+        expense.confidence = None
 
     db.commit()
     db.refresh(expense)
@@ -419,11 +433,13 @@ def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> Plai
                     new_expenses.remove(existing)
                 continue
             merchant = transaction.merchant_name or transaction.name
+            category, confidence = classify_with_confidence(merchant, transaction.name)
             existing.merchant = merchant
             existing.description = transaction.name
             existing.amount = Decimal(str(transaction.amount)).quantize(Decimal("0.01"))
             existing.expense_date = transaction.date
-            existing.category = classify(merchant, transaction.name)
+            existing.category = category
+            existing.confidence = Decimal(str(confidence))
 
         for removed in response.removed:
             existing = _find_expense_by_transaction_id(db, removed.transaction_id)

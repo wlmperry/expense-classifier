@@ -51,6 +51,7 @@ def test_list_expenses_returns_persisted_expenses(client, db_session):
             "amount": "2.75",
             "expense_date": "2026-08-29",
             "category": "Other",
+            "confidence": None,
         },
         {
             "id": second.id,
@@ -59,6 +60,7 @@ def test_list_expenses_returns_persisted_expenses(client, db_session):
             "amount": "19.99",
             "expense_date": "2026-01-05",
             "category": "Other",
+            "confidence": None,
         },
     ]
 
@@ -406,6 +408,39 @@ def test_create_expense_respects_explicit_category_over_classifier(client):
     assert response.json()["category"] == "Entertainment"
 
 
+def test_create_expense_sets_confidence_when_category_is_classified(client):
+    # "starbucks" and "coffee" both match Food & Dining, so this is a
+    # high-confidence (multi-keyword, single-category) match.
+    response = client.post(
+        "/expenses",
+        json={
+            "merchant": "STARBUCKS #1234",
+            "description": "Coffee",
+            "amount": "4.50",
+            "expense_date": "2026-08-29",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["confidence"] == "0.9"
+
+
+def test_create_expense_leaves_confidence_null_when_category_is_explicit(client):
+    response = client.post(
+        "/expenses",
+        json={
+            "merchant": "STARBUCKS #1234",
+            "description": "Coffee",
+            "amount": "4.50",
+            "expense_date": "2026-08-29",
+            "category": "Entertainment",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["confidence"] is None
+
+
 def test_create_expense_rejects_invalid_category(client, db_session):
     assert_rejected_and_not_persisted(
         client, db_session, {**VALID_PAYLOAD, "category": "Not A Real Category"}
@@ -520,6 +555,32 @@ def test_update_expense_accepts_explicit_category_override(client, db_session):
 
     assert response.status_code == 200
     assert response.json()["category"] == "Entertainment"
+
+
+def test_update_expense_nulls_confidence_when_category_is_set(client, db_session):
+    expense = _seed_one_expense(db_session)
+    expense.confidence = Decimal("0.75")
+    db_session.flush()
+
+    response = client.patch(f"/expenses/{expense.id}", json={"category": "Entertainment"})
+
+    assert response.status_code == 200
+    assert response.json()["confidence"] is None
+    db_session.refresh(expense)
+    assert expense.confidence is None
+
+
+def test_update_expense_leaves_confidence_unchanged_when_category_is_not_set(
+    client, db_session
+):
+    expense = _seed_one_expense(db_session)
+    expense.confidence = Decimal("0.75")
+    db_session.flush()
+
+    response = client.patch(f"/expenses/{expense.id}", json={"amount": "9.99"})
+
+    assert response.status_code == 200
+    assert response.json()["confidence"] == "0.75"
 
 
 def test_update_expense_returns_404_when_not_found(client):

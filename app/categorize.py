@@ -87,6 +87,15 @@ _COMPILED_KEYWORD_RULES: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = t
 def classify(merchant: str, description: str = "") -> str:
     """Guess a category for an expense from its merchant name and description.
 
+    A thin wrapper around classify_with_confidence() for callers that only
+    need the category. See that function for the matching rules.
+    """
+    return classify_with_confidence(merchant, description)[0]
+
+
+def classify_with_confidence(merchant: str, description: str = "") -> tuple[str, float]:
+    """Guess a category for an expense, with a confidence score.
+
     Matching is case-insensitive and keyword-boundary-aware over both fields
     together, so a keyword only matches a whole word (or word-like token),
     not an arbitrary substring -- "bar" matches "Corner Bar" but not "Barnes
@@ -94,9 +103,27 @@ def classify(merchant: str, description: str = "") -> str:
     Falling back to "Other" is the expected outcome for a merchant the rules
     don't recognize -- this is a baseline, not a trained model, so it isn't
     meant to recognize everything.
+
+    Confidence comes entirely from how many categories' keywords matched,
+    and how many keywords within the chosen one did -- it is not a
+    statistical probability, just a way to flag an ambiguous or unmatched
+    guess as less trustworthy than a clean, unique match:
+      - no category's keywords match (falls back to "Other"): 0.2
+      - exactly one category matches, on exactly one keyword: 0.75
+      - exactly one category matches, on more than one keyword: 0.9
+      - more than one category matches (ambiguous; the first one by rule
+        order is returned, same as before this existed): 0.5
     """
     haystack = f"{merchant} {description}".lower()
-    for category, patterns in _COMPILED_KEYWORD_RULES:
-        if any(pattern.search(haystack) for pattern in patterns):
-            return category
-    return "Other"
+    matches = [
+        (category, sum(1 for pattern in patterns if pattern.search(haystack)))
+        for category, patterns in _COMPILED_KEYWORD_RULES
+    ]
+    matched = [(category, hits) for category, hits in matches if hits > 0]
+
+    if not matched:
+        return "Other", 0.2
+    if len(matched) > 1:
+        return matched[0][0], 0.5
+    category, hits = matched[0]
+    return category, (0.9 if hits > 1 else 0.75)

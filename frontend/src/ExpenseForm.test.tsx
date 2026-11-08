@@ -18,6 +18,7 @@ const EXISTING_EXPENSE = {
   amount: '42.00',
   expense_date: '2026-09-02',
   category: 'Transportation',
+  confidence: null,
 }
 
 const noop = {

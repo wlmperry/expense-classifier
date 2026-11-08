@@ -28,6 +28,12 @@ class Expense(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
     expense_date: Mapped[date] = mapped_column(Date, nullable=False)
     category: Mapped[str] = mapped_column(String, nullable=False)
+    # Null means "no guess was made": either a caller supplied category
+    # explicitly (POST with category set, or any PATCH that sets category),
+    # so there's no classifier confidence to report. Set by the baseline
+    # classifier (see app/categorize.py) whenever it's the one picking the
+    # category instead.
+    confidence: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     # Only set for expenses imported via Plaid sync; lets a later sync look
     # a transaction up to dedupe it, apply a Plaid-side edit, or delete it.
     plaid_transaction_id: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -36,6 +42,10 @@ class Expense(Base):
         CheckConstraint("amount > 0", name="ck_expenses_amount_positive"),
         CheckConstraint(
             "scale(amount) <= 2", name="ck_expenses_amount_max_two_decimal_places"
+        ),
+        CheckConstraint(
+            "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
+            name="ck_expenses_confidence_range",
         ),
         CheckConstraint(
             "char_length(trim(merchant)) > 0", name="ck_expenses_merchant_not_blank"

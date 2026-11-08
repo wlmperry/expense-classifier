@@ -102,6 +102,7 @@ function App() {
                       <th className="col-amount">Amount</th>
                       <th>Date</th>
                       <th>Category</th>
+                      <th>Confidence</th>
                       <th className="col-actions">
                         <span className="visually-hidden">Actions</span>
                       </th>
@@ -116,6 +117,11 @@ function App() {
                         <td className="col-date">{expense.expense_date}</td>
                         <td>
                           <span className="category-tag">{expense.category}</span>
+                        </td>
+                        <td>
+                          {expense.confidence == null
+                            ? "—"
+                            : `${Math.round(Number(expense.confidence) * 100)}%`}
                         </td>
                         <td className="col-actions">
                           <span className="row-actions">

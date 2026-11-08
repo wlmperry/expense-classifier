@@ -6,7 +6,7 @@ function over plain strings.
 
 import pytest
 
-from app.categorize import CATEGORIES, classify
+from app.categorize import CATEGORIES, classify, classify_with_confidence
 
 
 @pytest.mark.parametrize(
@@ -61,3 +61,29 @@ def test_classify_still_matches_a_keyword_that_is_a_whole_word():
 
 def test_classify_matches_a_keyword_ending_in_a_non_word_character():
     assert classify("Disney+ Subscription") == "Entertainment"
+
+
+def test_confidence_is_low_for_no_match():
+    assert classify_with_confidence("XYZ Widgets Inc") == ("Other", 0.2)
+
+
+def test_confidence_is_medium_for_a_single_keyword_hit():
+    # "starbucks" is the only keyword that matches anywhere.
+    assert classify_with_confidence("Starbucks") == ("Food & Dining", 0.75)
+
+
+def test_confidence_is_high_for_multiple_keyword_hits_in_one_category():
+    # "cvs" and "pharmacy" both match, both within Health & Fitness.
+    assert classify_with_confidence("CVS Pharmacy") == ("Health & Fitness", 0.9)
+
+
+def test_confidence_is_ambiguous_for_keyword_hits_in_multiple_categories():
+    # "target" matches Shopping, "pharmacy" matches Health & Fitness.
+    # Shopping is returned (first by rule order), same category classify()
+    # would already have picked, but at the lower ambiguous-match score.
+    assert classify_with_confidence("Target Pharmacy") == ("Shopping", 0.5)
+
+
+def test_classify_matches_classify_with_confidences_category():
+    for merchant in ["Starbucks", "Target Pharmacy", "Unknown Co", "CVS Pharmacy"]:
+        assert classify(merchant) == classify_with_confidence(merchant)[0]
