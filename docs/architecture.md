@@ -290,7 +290,7 @@ no concept of a user who owns an Expense. Now that the frontend is deployed too 
 the token is baked into its built JS bundle (`VITE_API_AUTH_TOKEN`) and readable by anyone who
 opens the site in DevTools, so it does **not** protect the shared dataset from a visitor who
 goes looking -- it only deters casual/bot abuse of the raw API by a client that never loads the
-frontend. See the tracking Issue for real protection (a login, or a read-only public demo). A
+frontend. See Issue #44 for real protection (a login, or a read-only public demo). A
 real user/account auth system remains undecided.
 
 Backend deployment is established too (Issue #36): the database is hosted on Supabase
