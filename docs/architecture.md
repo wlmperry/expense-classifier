@@ -280,14 +280,18 @@ under deadline pressure -- see the branch's own history for that decision):
   /expenses/{id}`, so an out-of-range id is rejected with `422` instead of a
   database error.
 
-These are the only API decisions established so far.
+These are the established Expense-resource API decisions. Authentication and deployment
+decisions follow below.
 
 Authentication is established too, as a stopgap rather than a long-term design: every route
 except `GET /` requires a shared bearer token (`app/auth.py`, `API_AUTH_TOKEN`), checked
 against a single value every client uses. This is not a user/account system -- there is still
-no concept of a user who owns an Expense -- it exists only to keep the shared dataset from
-being casually corrupted once the backend is reachable on the public internet. A real
-user/account auth system remains undecided.
+no concept of a user who owns an Expense. Now that the frontend is deployed too (Issue #42),
+the token is baked into its built JS bundle (`VITE_API_AUTH_TOKEN`) and readable by anyone who
+opens the site in DevTools, so it does **not** protect the shared dataset from a visitor who
+goes looking -- it only deters casual/bot abuse of the raw API by a client that never loads the
+frontend. See the tracking Issue for real protection (a login, or a read-only public demo). A
+real user/account auth system remains undecided.
 
 Backend deployment is established too (Issue #36): the database is hosted on Supabase
 (managed PostgreSQL), reached through its **session-mode** connection pooler rather than its
@@ -309,8 +313,13 @@ at build time in that service's environment to point at the deployed backend and
 `API_AUTH_TOKEN`. `CORSMiddleware`'s `allow_origins` includes the deployed frontend's origin
 alongside `http://localhost:5173`, which stays for local development.
 
+If `VITE_API_BASE_URL` is ever missing or misspelled in Render's build environment, the build
+still succeeds -- `frontend/src/config.ts` falls back to `http://127.0.0.1:8000` -- but every
+visitor's browser then tries to reach its own localhost and the site only shows fetch errors.
+Double-check that variable is set correctly after any change to the Static Site's environment.
+
 ## Not decided yet
 
-`GET /expenses`, `POST /expenses`, and `PATCH /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). Backend and frontend deployment are established too (see above). Other endpoints, further request/response schemas, and repository layout remain undecided. They will be documented here as they are established, rather than guessed at now.
+`GET /expenses`, `POST /expenses`, `PATCH /expenses/{id}`, and `DELETE /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). Backend and frontend deployment are established too (see above). Other endpoints, further request/response schemas, and repository layout remain undecided. They will be documented here as they are established, rather than guessed at now.
 
 Schema and design for Receipt, Transaction, categorization, and every other concept listed under "Deferred from this contract" above remain entirely undecided.
