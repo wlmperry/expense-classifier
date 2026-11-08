@@ -289,8 +289,28 @@ no concept of a user who owns an Expense -- it exists only to keep the shared da
 being casually corrupted once the backend is reachable on the public internet. A real
 user/account auth system remains undecided.
 
+Backend deployment is established too (Issue #36): the database is hosted on Supabase
+(managed PostgreSQL), reached through its **session-mode** connection pooler rather than its
+transaction-mode one -- this app's SQLAlchemy `sessionmaker`/`Session`-per-request pattern
+relies on a connection behaving continuously for the life of a request, which transaction-mode
+pooling does not support. The backend itself runs on Render's free web-service tier
+(`uvicorn app.main:app`, Virginia/US East region), built and deployed from this repository's
+`main` branch; a free-tier instance spins down after about 15 minutes idle, with a roughly
+one-minute cold start on the next request, which is acceptable for a class demo but not for
+production use. `DATABASE_URL`, `PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_ENV`, and
+`API_AUTH_TOKEN` are configured directly in Render's dashboard rather than committed anywhere.
+
+Frontend deployment is established too (Issue #42): the React/Vite build is hosted as a
+separate Render **Static Site**, built from this same repository's `frontend/` directory
+(`npm install && npm run build`, publishing the `dist/` folder), rather than a different
+platform such as Vercel -- this keeps the whole project's deploy surface in one dashboard and
+avoids a second GitHub App installation. `VITE_API_BASE_URL` and `VITE_API_AUTH_TOKEN` are set
+at build time in that service's environment to point at the deployed backend and match its
+`API_AUTH_TOKEN`. `CORSMiddleware`'s `allow_origins` includes the deployed frontend's origin
+alongside `http://localhost:5173`, which stays for local development.
+
 ## Not decided yet
 
-`GET /expenses`, `POST /expenses`, and `PATCH /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). Other endpoints, further request/response schemas, repository layout, and deployment remain undecided. They will be documented here as they are established, rather than guessed at now.
+`GET /expenses`, `POST /expenses`, and `PATCH /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). Backend and frontend deployment are established too (see above). Other endpoints, further request/response schemas, and repository layout remain undecided. They will be documented here as they are established, rather than guessed at now.
 
 Schema and design for Receipt, Transaction, categorization, and every other concept listed under "Deferred from this contract" above remain entirely undecided.

@@ -59,3 +59,22 @@ def test_cors_preflight_allows_authorization_header():
     allowed_headers = response.headers["access-control-allow-headers"].lower()
     assert "authorization" in allowed_headers
 
+
+def test_cors_preflight_allows_the_deployed_frontend_origin():
+    # The frontend is also deployed and reachable on the public internet
+    # (Issue #42); the deployed site's own origin needs the same preflight
+    # access as localhost does during development.
+    response = client.options(
+        "/expenses",
+        headers={
+            "Origin": "https://expense-classifier-1.onrender.com",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
+        },
+    )
+    assert response.status_code == 200
+    assert (
+        response.headers["access-control-allow-origin"]
+        == "https://expense-classifier-1.onrender.com"
+    )
+
