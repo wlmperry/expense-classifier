@@ -102,3 +102,17 @@ def test_confidence_ignores_a_cross_category_match_nested_inside_a_longer_one():
     # "uber eats" (Food & Dining) contains a standalone "uber" (Transportation)
     # match -- that nested match must not make this look ambiguous.
     assert classify_with_confidence("Uber Eats") == ("Food & Dining", Decimal("0.75"))
+
+
+def test_confidence_counts_a_repeated_keyword_once_not_twice():
+    # The same keyword appearing in both merchant and description (common
+    # for Plaid imports, where both fields can echo the same text) must
+    # not look more confident than it would with only one of them set.
+    assert classify_with_confidence("Starbucks", "Starbucks") == (
+        "Food & Dining",
+        Decimal("0.75"),
+    )
+    assert classify_with_confidence("Starbucks", "STARBUCKS #1234") == (
+        "Food & Dining",
+        Decimal("0.75"),
+    )

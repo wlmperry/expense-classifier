@@ -113,18 +113,23 @@ def classify_with_confidence(merchant: str, description: str = "") -> tuple[str,
     or make an unrelated category look like it matched too.
 
     Confidence comes entirely from how many categories have a surviving
-    match, and how many keywords within the chosen one do -- it is not a
+    match, and how many *distinct keywords* within the chosen one do --
+    not how many times those keywords occur. "Starbucks" as both the
+    merchant and the description is still one keyword match, not two; a
+    repeated keyword (e.g. the same merchant name echoed into the
+    description, common for Plaid imports) must not look more confident
+    than it would with only one of those fields set. It is not a
     statistical probability, just a way to flag an ambiguous or unmatched
     guess as less trustworthy than a clean, unique match:
       - no category has a surviving match (falls back to "Other"): 0.2
-      - exactly one category matches, on exactly one keyword: 0.75
-      - exactly one category matches, on more than one keyword: 0.9
+      - exactly one category matches, on exactly one distinct keyword: 0.75
+      - exactly one category matches, on more than one distinct keyword: 0.9
       - more than one category matches (ambiguous; the first one by rule
         order is returned, same as before this existed): 0.5
     """
     haystack = f"{merchant} {description}".lower()
     all_spans = [
-        (match.start(), match.end(), category)
+        (match.start(), match.end(), category, pattern)
         for category, patterns in _COMPILED_KEYWORD_RULES
         for pattern in patterns
         for match in pattern.finditer(haystack)
@@ -138,14 +143,14 @@ def classify_with_confidence(merchant: str, description: str = "") -> tuple[str,
         )
     ]
 
-    hits_per_category: dict[str, int] = {}
-    for _, _, category in surviving_spans:
-        hits_per_category[category] = hits_per_category.get(category, 0) + 1
+    keywords_per_category: dict[str, set[re.Pattern[str]]] = {}
+    for _, _, category, pattern in surviving_spans:
+        keywords_per_category.setdefault(category, set()).add(pattern)
 
     matched = [
-        (category, hits_per_category[category])
+        (category, len(keywords_per_category[category]))
         for category, _ in _COMPILED_KEYWORD_RULES
-        if category in hits_per_category
+        if category in keywords_per_category
     ]
 
     if not matched:

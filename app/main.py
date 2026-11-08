@@ -453,11 +453,12 @@ def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> Plai
             existing.description = transaction.name
             existing.amount = Decimal(str(transaction.amount)).quantize(Decimal("0.01"))
             existing.expense_date = transaction.date
-            # confidence is None exactly when a human chose this Expense's
-            # category (see PATCH /expenses/{id}) -- re-running the
-            # classifier here would silently overwrite that choice the
-            # next time Plaid reports this transaction as modified (e.g.
-            # pending -> posted), so it's skipped entirely in that case.
+            # confidence is None whenever category isn't the classifier's
+            # own current guess -- a human chose or edited it, or this row
+            # predates confidence scores entirely. Re-running the
+            # classifier in any of those cases would silently overwrite
+            # that state the next time Plaid reports this transaction as
+            # modified (e.g. pending -> posted), so it's skipped.
             if existing.confidence is not None:
                 existing.category, existing.confidence = classify_with_confidence(
                     merchant, transaction.name

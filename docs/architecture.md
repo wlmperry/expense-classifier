@@ -284,21 +284,26 @@ Categorization is established too, as a rule-based baseline rather than a traine
 (Issue #45, building on the classifier added on `demo/plaid-ml-mvp`): `app/categorize.py`
 matches keywords in the merchant/description text against a fixed per-category keyword list.
 Alongside the category, it reports a **confidence** score derived purely from how many
-categories' keywords matched and how many keywords within the chosen one did -- not a
-statistical probability, just a way to flag an ambiguous or unmatched guess as less trustworthy
-than a clean match: `0.9` for multiple keyword hits in one, uncontested category, `0.75` for a
-single keyword hit in one, uncontested category, `0.5` when more than one category's keywords
-matched (the first by rule order is still returned, unchanged from before confidence existed),
-and `0.2` when nothing matched and the result fell back to `"Other"`. `confidence` is `null`
-whenever a category wasn't the classifier's own guess: a client-supplied `category` on
-`POST /expenses`, any `PATCH /expenses/{id}` that changes `category`, or a `PATCH` that changes
-`merchant`/`description` without also setting `category` (the old score described text that no
-longer exists on the row) all null it out, since neither a human-confirmed category nor a score
-attached to stale text is worth showing. A Plaid sync that re-reports an already-imported
+categories have a distinct-keyword match and how many distinct keywords within the chosen one do
+-- not a statistical probability, just a way to flag an ambiguous or unmatched guess as less
+trustworthy than a clean match: `0.9` for more than one distinct keyword matching in one,
+uncontested category, `0.75` for exactly one distinct keyword matching in one, uncontested
+category, `0.5` when more than one category has a match (the first by rule order is still
+returned, unchanged from before confidence existed), and `0.2` when nothing matched and the
+result fell back to `"Other"`. "Distinct" matters: the same keyword appearing in both `merchant`
+and `description` (common for Plaid imports, where both fields can echo the same text) still
+counts once, not twice.
+
+`confidence` is `null` whenever `category` isn't the classifier's own current guess -- a
+client-supplied `category` on `POST /expenses`, any `PATCH /expenses/{id}` that changes
+`category`, a `PATCH` that changes `merchant`/`description` without also setting `category` (the
+old score described text that's no longer on the row), or a row that predates this Issue (see
+the caveat below) can all mean `null`. A Plaid sync that re-reports an already-imported
 transaction as modified reclassifies it the same way `POST /expenses` would, *unless*
-`confidence` is already `null` -- that specifically means a human chose this Expense's category,
-and the sync must not silently put the classifier's guess back over that choice. It is persisted
-on the `expenses` row (computed once, like `category` itself, not recomputed on every read) and
+`confidence` is already `null` for any of those reasons -- the sync must not silently put the
+classifier's guess back over a state it didn't set itself, so it leaves `category` alone in
+every `null` case rather than trying to tell them apart. `confidence` is persisted on the
+`expenses` row (computed once, like `category` itself, not recomputed on every read) and
 included in `ExpenseRead`. A keyword match fully contained inside a longer match anywhere in the
 text (e.g. the standalone `"airlines"` keyword inside the `"united airlines"` keyword, or
 `"uber"` inside `"uber eats"`) is discarded before scoring, so one specific phrase can't inflate
