@@ -101,7 +101,7 @@ def _expense_from_transaction(transaction: Transaction) -> Expense | None:
         amount=Decimal(str(transaction.amount)).quantize(Decimal("0.01")),
         expense_date=transaction.date,
         category=category,
-        confidence=Decimal(str(confidence)),
+        confidence=confidence,
         plaid_transaction_id=transaction.transaction_id,
     )
 
@@ -197,8 +197,7 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> Exp
     if payload.category is not None:
         category, confidence = payload.category, None
     else:
-        category, score = classify_with_confidence(payload.merchant, payload.description)
-        confidence = Decimal(str(score))
+        category, confidence = classify_with_confidence(payload.merchant, payload.description)
     expense = Expense(
         merchant=payload.merchant,
         description=payload.description,
@@ -232,14 +231,31 @@ def update_expense(
             status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
         )
 
+    original_category = expense.category
+    original_merchant = expense.merchant
+    original_description = expense.description
+
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(expense, field, value)
-    if "category" in updates:
+
+    category_changed = "category" in updates and updates["category"] != original_category
+    text_changed = (
+        "merchant" in updates and updates["merchant"] != original_merchant
+    ) or ("description" in updates and updates["description"] != original_description)
+    if category_changed:
         # A human just chose this category explicitly, so whatever
         # confidence the classifier originally reported no longer
         # describes it -- showing a stale guess next to a human decision
         # would be misleading.
+        expense.confidence = None
+    elif text_changed and expense.confidence is not None:
+        # The category didn't change, but the text the classifier scored
+        # it against did -- the old confidence described a merchant/
+        # description that no longer exists on this row, so it can't be
+        # trusted either. category still isn't re-derived here (that's a
+        # client decision, same as before), only the stale score is
+        # dropped.
         expense.confidence = None
 
     db.commit()
@@ -433,13 +449,19 @@ def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> Plai
                     new_expenses.remove(existing)
                 continue
             merchant = transaction.merchant_name or transaction.name
-            category, confidence = classify_with_confidence(merchant, transaction.name)
             existing.merchant = merchant
             existing.description = transaction.name
             existing.amount = Decimal(str(transaction.amount)).quantize(Decimal("0.01"))
             existing.expense_date = transaction.date
-            existing.category = category
-            existing.confidence = Decimal(str(confidence))
+            # confidence is None exactly when a human chose this Expense's
+            # category (see PATCH /expenses/{id}) -- re-running the
+            # classifier here would silently overwrite that choice the
+            # next time Plaid reports this transaction as modified (e.g.
+            # pending -> posted), so it's skipped entirely in that case.
+            if existing.confidence is not None:
+                existing.category, existing.confidence = classify_with_confidence(
+                    merchant, transaction.name
+                )
 
         for removed in response.removed:
             existing = _find_expense_by_transaction_id(db, removed.transaction_id)

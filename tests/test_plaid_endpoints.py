@@ -10,6 +10,7 @@ and needs adding.
 
 import json
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -347,6 +348,83 @@ def test_sync_applies_a_modified_transaction_to_the_existing_expense(
     db_session.refresh(expense)
     assert str(expense.amount) == "12.50"
     assert expense.description == "MCDONALD'S F1234"
+
+
+def test_sync_reclassifies_an_auto_categorized_expense_on_modification(
+    client, db_session, mock_plaid_client
+):
+    """A modified transaction whose merchant changed should get a fresh
+    category/confidence, same as before this Issue -- as long as nothing
+    ever overrode the original guess."""
+    _seed_plaid_item(db_session)
+    expense = Expense(
+        merchant="Unknown Co",
+        description="Unknown Co",
+        amount="10.00",
+        expense_date=date(2026, 10, 30),
+        category="Other",
+        confidence=Decimal("0.2"),
+        plaid_transaction_id="txn-1",
+    )
+    db_session.add(expense)
+    db_session.flush()
+    mock_plaid_client.transactions_sync.return_value = _sync_response(
+        modified=[
+            SimpleNamespace(
+                transaction_id="txn-1",
+                amount=12.5,
+                merchant_name="Starbucks",
+                name="Purchase",
+                date=date(2026, 10, 30),
+            ),
+        ],
+    )
+
+    response = client.post("/plaid/sync/item-abc123")
+
+    assert response.status_code == 201
+    db_session.refresh(expense)
+    assert expense.category == "Food & Dining"
+    assert expense.confidence == Decimal("0.75")
+
+
+def test_sync_does_not_override_a_human_chosen_category_on_modification(
+    client, db_session, mock_plaid_client
+):
+    """Once a human has set this Expense's category (confidence is null),
+    a later sync must not quietly put the classifier's guess back, even if
+    Plaid reports the same transaction as modified (e.g. pending -> posted)."""
+    _seed_plaid_item(db_session)
+    expense = Expense(
+        merchant="Unknown Co",
+        description="Unknown Co",
+        amount="10.00",
+        expense_date=date(2026, 10, 30),
+        category="Entertainment",
+        confidence=None,
+        plaid_transaction_id="txn-1",
+    )
+    db_session.add(expense)
+    db_session.flush()
+    mock_plaid_client.transactions_sync.return_value = _sync_response(
+        modified=[
+            SimpleNamespace(
+                transaction_id="txn-1",
+                amount=12.5,
+                merchant_name="Starbucks",
+                name="Starbucks",
+                date=date(2026, 10, 30),
+            ),
+        ],
+    )
+
+    response = client.post("/plaid/sync/item-abc123")
+
+    assert response.status_code == 201
+    db_session.refresh(expense)
+    assert str(expense.amount) == "12.50"  # Plaid-sourced fields still update
+    assert expense.category == "Entertainment"  # human choice preserved
+    assert expense.confidence is None
 
 
 def test_sync_deletes_existing_expense_when_a_modified_transaction_turns_non_outflow(

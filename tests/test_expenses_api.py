@@ -548,6 +548,34 @@ def test_update_expense_does_not_reclassify_category_when_merchant_changes(clien
     assert response.json()["category"] == "Shopping"
 
 
+def test_update_expense_nulls_confidence_when_merchant_changes_without_category(
+    client, db_session
+):
+    # category stays "Shopping", but the confidence that described the old
+    # merchant text no longer describes "STARBUCKS #1234".
+    expense = _seed_one_expense(db_session)
+    expense.confidence = Decimal("0.75")
+    db_session.flush()
+
+    response = client.patch(f"/expenses/{expense.id}", json={"merchant": "STARBUCKS #1234"})
+
+    assert response.status_code == 200
+    assert response.json()["confidence"] is None
+
+
+def test_update_expense_resending_the_same_category_value_leaves_confidence_alone(
+    client, db_session
+):
+    expense = _seed_one_expense(db_session)
+    expense.confidence = Decimal("0.75")
+    db_session.flush()
+
+    response = client.patch(f"/expenses/{expense.id}", json={"category": "Shopping"})
+
+    assert response.status_code == 200
+    assert response.json()["confidence"] == "0.75"
+
+
 def test_update_expense_accepts_explicit_category_override(client, db_session):
     expense = _seed_one_expense(db_session)
 

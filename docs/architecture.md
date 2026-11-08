@@ -291,12 +291,29 @@ single keyword hit in one, uncontested category, `0.5` when more than one catego
 matched (the first by rule order is still returned, unchanged from before confidence existed),
 and `0.2` when nothing matched and the result fell back to `"Other"`. `confidence` is `null`
 whenever a category wasn't the classifier's own guess: a client-supplied `category` on
-`POST /expenses`, or any `PATCH /expenses/{id}` that sets `category`, nulls it out, since a
-human-confirmed category has no guess attached to it worth scoring. It is persisted on the
-`expenses` row (computed once, like `category` itself, not recomputed on every read) and
-included in `ExpenseRead`. The machine-learned classifier scikit-learn is meant for (see "Not
-decided yet" below) would replace this baseline and its confidence heuristic together, not
-layer on top of them.
+`POST /expenses`, any `PATCH /expenses/{id}` that changes `category`, or a `PATCH` that changes
+`merchant`/`description` without also setting `category` (the old score described text that no
+longer exists on the row) all null it out, since neither a human-confirmed category nor a score
+attached to stale text is worth showing. A Plaid sync that re-reports an already-imported
+transaction as modified reclassifies it the same way `POST /expenses` would, *unless*
+`confidence` is already `null` -- that specifically means a human chose this Expense's category,
+and the sync must not silently put the classifier's guess back over that choice. It is persisted
+on the `expenses` row (computed once, like `category` itself, not recomputed on every read) and
+included in `ExpenseRead`. A keyword match fully contained inside a longer match anywhere in the
+text (e.g. the standalone `"airlines"` keyword inside the `"united airlines"` keyword, or
+`"uber"` inside `"uber eats"`) is discarded before scoring, so one specific phrase can't inflate
+its own hit count or make an unrelated category look ambiguous. The machine-learned classifier
+scikit-learn is meant for (see "Not decided yet" below) would replace this baseline and its
+confidence heuristic together, not layer on top of them.
+
+**Caveat for rows that predate this Issue:** the migration that added `confidence` set it to
+`null` for every pre-existing row, including ones the classifier itself categorized before this
+existed. `null` is not retroactively accurate for those rows the way it is from this Issue
+forward -- there is no reliable way to tell, after the fact, which pre-existing categories were
+a human's choice and which were the classifier's unreviewed guess, so none were backfilled
+(doing so risked silently overwriting a human correction that happened to agree with what the
+classifier would guess today). Treat `null`/`"—"` on a row from before this Issue shipped as
+"unknown," not as "a human definitely chose this."
 
 These are the established Expense-resource API decisions. Authentication and deployment
 decisions follow below.

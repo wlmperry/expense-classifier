@@ -8,6 +8,7 @@ calls out to anything external, so it stays fast and reproducible.
 """
 
 import re
+from decimal import Decimal
 
 CATEGORIES: tuple[str, ...] = (
     "Food & Dining",
@@ -93,7 +94,7 @@ def classify(merchant: str, description: str = "") -> str:
     return classify_with_confidence(merchant, description)[0]
 
 
-def classify_with_confidence(merchant: str, description: str = "") -> tuple[str, float]:
+def classify_with_confidence(merchant: str, description: str = "") -> tuple[str, Decimal]:
     """Guess a category for an expense, with a confidence score.
 
     Matching is case-insensitive and keyword-boundary-aware over both fields
@@ -104,26 +105,52 @@ def classify_with_confidence(merchant: str, description: str = "") -> tuple[str,
     don't recognize -- this is a baseline, not a trained model, so it isn't
     meant to recognize everything.
 
-    Confidence comes entirely from how many categories' keywords matched,
-    and how many keywords within the chosen one did -- it is not a
+    A keyword match fully inside a longer match anywhere in the text is
+    discarded before scoring -- e.g. "united airlines" also contains a
+    standalone "airlines" match, and "uber eats" contains a standalone
+    "uber" match (a different category's keyword entirely). Without this,
+    a single, specific phrase would inflate its own category's hit count,
+    or make an unrelated category look like it matched too.
+
+    Confidence comes entirely from how many categories have a surviving
+    match, and how many keywords within the chosen one do -- it is not a
     statistical probability, just a way to flag an ambiguous or unmatched
     guess as less trustworthy than a clean, unique match:
-      - no category's keywords match (falls back to "Other"): 0.2
+      - no category has a surviving match (falls back to "Other"): 0.2
       - exactly one category matches, on exactly one keyword: 0.75
       - exactly one category matches, on more than one keyword: 0.9
       - more than one category matches (ambiguous; the first one by rule
         order is returned, same as before this existed): 0.5
     """
     haystack = f"{merchant} {description}".lower()
-    matches = [
-        (category, sum(1 for pattern in patterns if pattern.search(haystack)))
+    all_spans = [
+        (match.start(), match.end(), category)
         for category, patterns in _COMPILED_KEYWORD_RULES
+        for pattern in patterns
+        for match in pattern.finditer(haystack)
     ]
-    matched = [(category, hits) for category, hits in matches if hits > 0]
+    surviving_spans = [
+        span
+        for span in all_spans
+        if not any(
+            other[0] <= span[0] and span[1] <= other[1] and other != span
+            for other in all_spans
+        )
+    ]
+
+    hits_per_category: dict[str, int] = {}
+    for _, _, category in surviving_spans:
+        hits_per_category[category] = hits_per_category.get(category, 0) + 1
+
+    matched = [
+        (category, hits_per_category[category])
+        for category, _ in _COMPILED_KEYWORD_RULES
+        if category in hits_per_category
+    ]
 
     if not matched:
-        return "Other", 0.2
+        return "Other", Decimal("0.2")
     if len(matched) > 1:
-        return matched[0][0], 0.5
+        return matched[0][0], Decimal("0.5")
     category, hits = matched[0]
-    return category, (0.9 if hits > 1 else 0.75)
+    return category, (Decimal("0.9") if hits > 1 else Decimal("0.75"))
