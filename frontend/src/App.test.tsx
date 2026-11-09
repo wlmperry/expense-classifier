@@ -67,6 +67,21 @@ describe('App', () => {
     expect(screen.getByText('42.00')).toBeInTheDocument()
   })
 
+  it('shows confidence as a percentage, or a dash when null', async () => {
+    stubFetch({
+      ok: true,
+      body: [
+        { id: 1, merchant: 'Corner Store', description: 'Coffee', amount: '3.50', expense_date: '2026-09-01', category: 'Food & Dining', confidence: '0.9' },
+        { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Transportation', confidence: null },
+      ],
+    })
+
+    render(<App />)
+
+    expect(await screen.findByText('90%')).toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
   it('shows an empty state when the API returns no expenses', async () => {
     stubFetch({ ok: true, body: [] })
 

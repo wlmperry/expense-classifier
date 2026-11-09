@@ -59,6 +59,10 @@ class ExpenseRead(BaseModel):
     amount: Decimal
     expense_date: date
     category: str
+    # Null means category wasn't auto-classified -- either a caller supplied
+    # it directly, or a PATCH changed it, so there's no classifier guess
+    # to score. Never settable by a client: see app/categorize.py.
+    confidence: Decimal | None
 
 
 class ExpenseCreate(BaseModel):

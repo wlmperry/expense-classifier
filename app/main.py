@@ -24,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth import get_api_token, require_auth_token
-from app.categorize import classify
+from app.categorize import classify_with_confidence
 from app.database import get_db
 from app.models import Expense, PlaidItem
 from app.plaid_client import get_plaid_client
@@ -94,12 +94,14 @@ def _expense_from_transaction(transaction: Transaction) -> Expense | None:
     if transaction.amount <= 0:
         return None
     merchant = transaction.merchant_name or transaction.name
+    category, confidence = classify_with_confidence(merchant, transaction.name)
     return Expense(
         merchant=merchant,
         description=transaction.name,
         amount=Decimal(str(transaction.amount)).quantize(Decimal("0.01")),
         expense_date=transaction.date,
-        category=classify(merchant, transaction.name),
+        category=category,
+        confidence=confidence,
         plaid_transaction_id=transaction.transaction_id,
     )
 
@@ -192,13 +194,17 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> Exp
     See docs/architecture.md's Expense contract and "Established API
     decisions" for the request/response shape and wire-format guarantees.
     """
-    category = payload.category or classify(payload.merchant, payload.description)
+    if payload.category is not None:
+        category, confidence = payload.category, None
+    else:
+        category, confidence = classify_with_confidence(payload.merchant, payload.description)
     expense = Expense(
         merchant=payload.merchant,
         description=payload.description,
         amount=payload.amount,
         expense_date=payload.expense_date,
         category=category,
+        confidence=confidence,
     )
     db.add(expense)
     db.commit()
@@ -225,8 +231,32 @@ def update_expense(
             status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
         )
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    original_category = expense.category
+    original_merchant = expense.merchant
+    original_description = expense.description
+
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
         setattr(expense, field, value)
+
+    category_changed = "category" in updates and updates["category"] != original_category
+    text_changed = (
+        "merchant" in updates and updates["merchant"] != original_merchant
+    ) or ("description" in updates and updates["description"] != original_description)
+    if category_changed:
+        # A human just chose this category explicitly, so whatever
+        # confidence the classifier originally reported no longer
+        # describes it -- showing a stale guess next to a human decision
+        # would be misleading.
+        expense.confidence = None
+    elif text_changed and expense.confidence is not None:
+        # The category didn't change, but the text the classifier scored
+        # it against did -- the old confidence described a merchant/
+        # description that no longer exists on this row, so it can't be
+        # trusted either. category still isn't re-derived here (that's a
+        # client decision, same as before), only the stale score is
+        # dropped.
+        expense.confidence = None
 
     db.commit()
     db.refresh(expense)
@@ -423,7 +453,16 @@ def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> Plai
             existing.description = transaction.name
             existing.amount = Decimal(str(transaction.amount)).quantize(Decimal("0.01"))
             existing.expense_date = transaction.date
-            existing.category = classify(merchant, transaction.name)
+            # confidence is None whenever category isn't the classifier's
+            # own current guess -- a human chose or edited it, or this row
+            # predates confidence scores entirely. Re-running the
+            # classifier in any of those cases would silently overwrite
+            # that state the next time Plaid reports this transaction as
+            # modified (e.g. pending -> posted), so it's skipped.
+            if existing.confidence is not None:
+                existing.category, existing.confidence = classify_with_confidence(
+                    merchant, transaction.name
+                )
 
         for removed in response.removed:
             existing = _find_expense_by_transaction_id(db, removed.transaction_id)

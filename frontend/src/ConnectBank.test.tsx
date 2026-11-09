@@ -44,6 +44,7 @@ const IMPORTED_EXPENSE: Expense = {
   amount: "6.33",
   expense_date: "2026-10-31",
   category: "Transportation",
+  confidence: "0.9",
 }
 
 describe("ConnectBank", () => {

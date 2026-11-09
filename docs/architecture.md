@@ -280,6 +280,46 @@ under deadline pressure -- see the branch's own history for that decision):
   /expenses/{id}`, so an out-of-range id is rejected with `422` instead of a
   database error.
 
+Categorization is established too, as a rule-based baseline rather than a trained model
+(Issue #45, building on the classifier added on `demo/plaid-ml-mvp`): `app/categorize.py`
+matches keywords in the merchant/description text against a fixed per-category keyword list.
+Alongside the category, it reports a **confidence** score derived purely from how many
+categories have a distinct-keyword match and how many distinct keywords within the chosen one do
+-- not a statistical probability, just a way to flag an ambiguous or unmatched guess as less
+trustworthy than a clean match: `0.9` for more than one distinct keyword matching in one,
+uncontested category, `0.75` for exactly one distinct keyword matching in one, uncontested
+category, `0.5` when more than one category has a match (the first by rule order is still
+returned, unchanged from before confidence existed), and `0.2` when nothing matched and the
+result fell back to `"Other"`. "Distinct" matters: the same keyword appearing in both `merchant`
+and `description` (common for Plaid imports, where both fields can echo the same text) still
+counts once, not twice.
+
+`confidence` is `null` whenever `category` isn't the classifier's own current guess -- a
+client-supplied `category` on `POST /expenses`, any `PATCH /expenses/{id}` that changes
+`category`, a `PATCH` that changes `merchant`/`description` without also setting `category` (the
+old score described text that's no longer on the row), or a row that predates this Issue (see
+the caveat below) can all mean `null`. A Plaid sync that re-reports an already-imported
+transaction as modified reclassifies it the same way `POST /expenses` would, *unless*
+`confidence` is already `null` for any of those reasons -- the sync must not silently put the
+classifier's guess back over a state it didn't set itself, so it leaves `category` alone in
+every `null` case rather than trying to tell them apart. `confidence` is persisted on the
+`expenses` row (computed once, like `category` itself, not recomputed on every read) and
+included in `ExpenseRead`. A keyword match fully contained inside a longer match anywhere in the
+text (e.g. the standalone `"airlines"` keyword inside the `"united airlines"` keyword, or
+`"uber"` inside `"uber eats"`) is discarded before scoring, so one specific phrase can't inflate
+its own hit count or make an unrelated category look ambiguous. The machine-learned classifier
+scikit-learn is meant for (see "Not decided yet" below) would replace this baseline and its
+confidence heuristic together, not layer on top of them.
+
+**Caveat for rows that predate this Issue:** the migration that added `confidence` set it to
+`null` for every pre-existing row, including ones the classifier itself categorized before this
+existed. `null` is not retroactively accurate for those rows the way it is from this Issue
+forward -- there is no reliable way to tell, after the fact, which pre-existing categories were
+a human's choice and which were the classifier's unreviewed guess, so none were backfilled
+(doing so risked silently overwriting a human correction that happened to agree with what the
+classifier would guess today). Treat `null`/`"—"` on a row from before this Issue shipped as
+"unknown," not as "a human definitely chose this."
+
 These are the established Expense-resource API decisions. Authentication and deployment
 decisions follow below.
 
@@ -322,4 +362,4 @@ Double-check that variable is set correctly after any change to the Static Site'
 
 `GET /expenses`, `POST /expenses`, `PATCH /expenses/{id}`, and `DELETE /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). Backend and frontend deployment are established too (see above). Other endpoints, further request/response schemas, and repository layout remain undecided. They will be documented here as they are established, rather than guessed at now.
 
-Schema and design for Receipt, Transaction, categorization, and every other concept listed under "Deferred from this contract" above remain entirely undecided.
+Schema and design for Receipt, Transaction, and every other concept listed under "Deferred from this contract" above remain entirely undecided. Categorization itself is no longer in that list -- see "Established API decisions" above for the rule-based baseline and its confidence score; only the later machine-learned classifier remains undecided.
