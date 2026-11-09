@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -263,5 +263,132 @@ describe('App', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/failed to delete/i)
     expect(screen.getByText('Corner Store')).toBeInTheDocument()
+  })
+
+  describe('spending summary', () => {
+    const coffee = { ...oneExpense, category: 'Food & Dining', confidence: null }
+    const fuel = { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Transportation', confidence: null }
+
+    function summaryRegion() {
+      return screen.getByRole('region', { name: /spending summary/i })
+    }
+
+    it('shows the total and a per-category breakdown of the loaded expenses', async () => {
+      stubFetch({ ok: true, body: [coffee, fuel] })
+
+      render(<App />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+      const summary = within(summaryRegion())
+      expect(summary.getByText('$45.50')).toBeInTheDocument()
+      expect(summary.getByText(/across 2 expenses/i)).toBeInTheDocument()
+
+      const rows = within(summary.getByRole('list', { name: /spending by category/i })).getAllByRole('listitem')
+      expect(rows).toHaveLength(2)
+      // Highest spend first.
+      expect(rows[0]).toHaveTextContent('Transportation')
+      expect(rows[0]).toHaveTextContent('$42.00')
+      expect(rows[0]).toHaveTextContent('92%')
+      expect(rows[1]).toHaveTextContent('Food & Dining')
+      expect(rows[1]).toHaveTextContent('$3.50')
+      expect(rows[1]).toHaveTextContent('8%')
+    })
+
+    it('shows an empty message when there are no expenses', async () => {
+      stubFetch({ ok: true, body: [] })
+
+      render(<App />)
+      expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
+
+      const summary = within(summaryRegion())
+      expect(summary.getByText('$0.00')).toBeInTheDocument()
+      expect(summary.getByText(/no spending to summarize yet/i)).toBeInTheDocument()
+    })
+
+    it('is not shown while expenses are loading or when loading fails', async () => {
+      stubFetch({ ok: false, status: 500, body: null })
+
+      render(<App />)
+      expect(screen.queryByRole('region', { name: /spending summary/i })).not.toBeInTheDocument()
+
+      await screen.findByRole('alert')
+      expect(screen.queryByRole('region', { name: /spending summary/i })).not.toBeInTheDocument()
+    })
+
+    it('updates when an expense is added', async () => {
+      const saved = { ...fuel }
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: RequestInit) =>
+          stubPlaidLinkToken(url) ??
+          Promise.resolve({
+            ok: true,
+            status: init?.method === 'POST' ? 201 : 200,
+            json: () => Promise.resolve(init?.method === 'POST' ? saved : [coffee]),
+          }),
+        ),
+      )
+
+      render(<App />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+      expect(within(summaryRegion()).getByText('$3.50', { selector: '.summary-card__total-amount' })).toBeInTheDocument()
+
+      fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Gas Station' } })
+      fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Fuel' } })
+      fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '42.00' } })
+      fireEvent.change(screen.getByLabelText(/date/i), { target: { value: '2026-09-02' } })
+      fireEvent.click(screen.getByRole('button', { name: /add expense/i }))
+
+      expect(await within(summaryRegion()).findByText('$45.50')).toBeInTheDocument()
+    })
+
+    it('updates when an expense is edited', async () => {
+      const updated = { ...coffee, amount: '50.00' }
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: RequestInit) => {
+          const plaidStub = stubPlaidLinkToken(url)
+          if (plaidStub) return plaidStub
+          if (init?.method === 'PATCH') {
+            return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(updated) })
+          }
+          return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve([coffee, fuel]) })
+        }),
+      )
+
+      render(<App />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+      expect(within(summaryRegion()).getByText('$45.50')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
+      fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '50.00' } })
+      fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+      expect(await within(summaryRegion()).findByText('$92.00')).toBeInTheDocument()
+    })
+
+    it('updates when an expense is deleted', async () => {
+      vi.stubGlobal('confirm', vi.fn(() => true))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((_url: string, init?: RequestInit) =>
+          Promise.resolve({
+            ok: true,
+            status: init?.method === 'DELETE' ? 204 : 200,
+            json: () => Promise.resolve(init?.method === 'DELETE' ? undefined : [coffee, fuel]),
+          }),
+        ),
+      )
+
+      render(<App />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+      expect(within(summaryRegion()).getByText('$45.50')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /delete expense at gas station/i }))
+
+      const summary = within(summaryRegion())
+      expect(await summary.findByText('$3.50', { selector: '.summary-card__total-amount' })).toBeInTheDocument()
+      expect(summary.queryByText('Transportation')).not.toBeInTheDocument()
+    })
   })
 })

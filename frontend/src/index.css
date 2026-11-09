@@ -231,6 +231,104 @@ body {
   font-weight: 600;
 }
 
+/* ---------- Spending summary ---------- */
+
+.summary-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.summary-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 24px;
+}
+
+.summary-card__total {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.summary-card__total-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.summary-card__total-amount {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-card__total-count {
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+.summary-card__message {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.summary-breakdown {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Category name, bar, amount, percent on one line. */
+.summary-breakdown__row {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) 100px 44px;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-breakdown__category {
+  font-weight: 600;
+  color: var(--color-label);
+}
+
+.summary-breakdown__bar {
+  display: block;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--color-tint);
+  overflow: hidden;
+}
+
+.summary-breakdown__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+
+.summary-breakdown__amount {
+  text-align: right;
+  font-weight: 600;
+}
+
+.summary-breakdown__percent {
+  text-align: right;
+  color: var(--color-muted);
+}
+
 /* ---------- Form ---------- */
 
 .expense-form {
@@ -401,5 +499,16 @@ select:focus-visible,
 
   .connect-bank {
     justify-content: flex-start;
+  }
+
+  /* Category and amount on the first line, the bar full-width under them. */
+  .summary-breakdown__row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    row-gap: 6px;
+  }
+
+  .summary-breakdown__bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { deleteExpense, fetchExpenses } from "./api"
 import ConnectBank from "./ConnectBank"
 import ExpenseForm from "./ExpenseForm"
+import SpendingSummary from "./SpendingSummary"
 import type { Expense } from "./types"
 
 function App() {
@@ -72,6 +73,8 @@ function App() {
           <p className="page-title__eyebrow">Your ledger</p>
           <h1>Expense Classifier</h1>
         </div>
+
+        {!loading && !error && <SpendingSummary expenses={expenses} />}
 
         <div className="page-columns">
           <section className="card expenses-card" aria-labelledby="expenses-heading">
