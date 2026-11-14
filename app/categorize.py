@@ -11,59 +11,59 @@ import re
 from decimal import Decimal
 
 CATEGORIES: tuple[str, ...] = (
-    "Food & Dining",
-    "Transportation",
-    "Housing & Utilities",
-    "Shopping",
-    "Entertainment",
-    "Health & Fitness",
+    "Groceries",
+    "Restaurants & Bars",
+    "Coffee Shops",
+    "Food Delivery",
+    "Gas & Fuel",
+    "Rideshare & Transit",
+    "Travel",
+    "Rent & Mortgage",
+    "Utilities",
+    "Online Shopping",
+    "General Merchandise",
+    "Electronics",
+    "Clothing",
+    "Streaming & Subscriptions",
+    "Movies & Events",
+    "Gaming",
+    "Pharmacy",
+    "Gym & Fitness",
+    "Medical",
     "Other",
 )
 
+# Rule order is also the tie-break order: when keywords from more than one
+# category match, classify_with_confidence() returns the first one listed
+# here. That's why Groceries sits above General Merchandise ("Kroger Grocery
+# Store" matches both "grocery" and "store", and Groceries is the better
+# guess).
 _KEYWORD_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
-        "Food & Dining",
+        "Groceries",
         (
-            "restaurant", "cafe", "coffee", "starbucks", "mcdonald",
-            "grocery", "doordash", "ubereats", "uber eats", "grubhub",
-            "bar", "pizza", "deli", "bakery",
+            "grocery", "groceries", "supermarket", "kroger", "whole foods",
+            "trader joe", "aldi", "safeway",
         ),
     ),
-    (
-        "Transportation",
-        (
-            "uber", "lyft", "gas", "shell", "chevron", "exxon", "parking",
-            "transit", "airlines", "delta", "united airlines", "amtrak",
-        ),
-    ),
-    (
-        "Housing & Utilities",
-        (
-            "rent", "electric", "water bill", "internet", "comcast",
-            "landlord", "mortgage", "utility", "utilities",
-        ),
-    ),
-    (
-        "Shopping",
-        (
-            "amazon", "target", "walmart", "store", "mall", "best buy",
-            "clothing",
-        ),
-    ),
-    (
-        "Entertainment",
-        (
-            "netflix", "spotify", "movie", "theatre", "theater", "cinema",
-            "concert", "steam", "hulu", "disney+",
-        ),
-    ),
-    (
-        "Health & Fitness",
-        (
-            "pharmacy", "cvs", "walgreens", "gym", "fitness", "doctor",
-            "clinic", "hospital",
-        ),
-    ),
+    ("Restaurants & Bars", ("restaurant", "mcdonald", "bar", "pizza", "deli", "bakery")),
+    ("Coffee Shops", ("cafe", "coffee", "starbucks")),
+    ("Food Delivery", ("doordash", "ubereats", "uber eats", "grubhub", "instacart")),
+    ("Gas & Fuel", ("gas", "fuel", "shell", "chevron", "exxon")),
+    ("Rideshare & Transit", ("uber", "lyft", "taxi", "transit", "metro", "parking")),
+    ("Travel", ("airlines", "delta", "united airlines", "amtrak", "hotel", "airbnb")),
+    ("Rent & Mortgage", ("rent", "landlord", "mortgage")),
+    ("Utilities", ("electric", "water bill", "internet", "comcast", "utility", "utilities")),
+    ("Online Shopping", ("amazon", "ebay", "etsy")),
+    ("General Merchandise", ("target", "walmart", "costco", "store", "mall")),
+    ("Electronics", ("best buy", "apple store", "electronics")),
+    ("Clothing", ("clothing", "apparel", "shoes", "nike")),
+    ("Streaming & Subscriptions", ("netflix", "spotify", "hulu", "disney+")),
+    ("Movies & Events", ("movie", "theatre", "theater", "cinema", "concert", "ticketmaster")),
+    ("Gaming", ("steam", "xbox", "playstation", "nintendo")),
+    ("Pharmacy", ("pharmacy", "cvs", "walgreens")),
+    ("Gym & Fitness", ("gym", "fitness")),
+    ("Medical", ("doctor", "clinic", "hospital", "dental")),
 )
 
 

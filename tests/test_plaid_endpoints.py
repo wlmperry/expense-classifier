@@ -221,7 +221,7 @@ def test_sync_creates_categorized_expense_for_each_outflow(
     body = response.json()
     assert body["added_count"] == 2
     categories = {expense["merchant"]: expense["category"] for expense in body["added"]}
-    assert categories == {"McDonald's": "Food & Dining", "Uber": "Transportation"}
+    assert categories == {"McDonald's": "Restaurants & Bars", "Uber": "Rideshare & Transit"}
 
 
 def test_sync_skips_non_outflow_transactions(client, db_session, mock_plaid_client):
@@ -288,7 +288,7 @@ def test_sync_does_not_reimport_a_transaction_already_persisted(
             description="MCDONALD'S F1234",
             amount="12.00",
             expense_date=date(2026, 10, 30),
-            category="Food & Dining",
+            category="Restaurants & Bars",
             plaid_transaction_id="txn-1",
         )
     )
@@ -324,7 +324,7 @@ def test_sync_applies_a_modified_transaction_to_the_existing_expense(
         description="MCDONALD'S F1234 (pending)",
         amount="10.00",
         expense_date=date(2026, 10, 30),
-        category="Food & Dining",
+        category="Restaurants & Bars",
         plaid_transaction_id="txn-1",
     )
     db_session.add(expense)
@@ -384,7 +384,7 @@ def test_sync_reclassifies_an_auto_categorized_expense_on_modification(
 
     assert response.status_code == 201
     db_session.refresh(expense)
-    assert expense.category == "Food & Dining"
+    assert expense.category == "Coffee Shops"
     assert expense.confidence == Decimal("0.75")
 
 
@@ -400,7 +400,7 @@ def test_sync_does_not_override_a_human_chosen_category_on_modification(
         description="Unknown Co",
         amount="10.00",
         expense_date=date(2026, 10, 30),
-        category="Entertainment",
+        category="Movies & Events",
         confidence=None,
         plaid_transaction_id="txn-1",
     )
@@ -423,7 +423,7 @@ def test_sync_does_not_override_a_human_chosen_category_on_modification(
     assert response.status_code == 201
     db_session.refresh(expense)
     assert str(expense.amount) == "12.50"  # Plaid-sourced fields still update
-    assert expense.category == "Entertainment"  # human choice preserved
+    assert expense.category == "Movies & Events"  # human choice preserved
     assert expense.confidence is None
 
 
@@ -439,7 +439,7 @@ def test_sync_deletes_existing_expense_when_a_modified_transaction_turns_non_out
             description="MCDONALD'S F1234",
             amount="12.00",
             expense_date=date(2026, 10, 30),
-            category="Food & Dining",
+            category="Restaurants & Bars",
             plaid_transaction_id="txn-1",
         )
     )
@@ -472,7 +472,7 @@ def test_sync_removes_an_expense_for_a_removed_transaction(
             description="MCDONALD'S F1234 (pending)",
             amount="10.00",
             expense_date=date(2026, 10, 30),
-            category="Food & Dining",
+            category="Restaurants & Bars",
             plaid_transaction_id="txn-1",
         )
     )
