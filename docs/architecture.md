@@ -320,6 +320,20 @@ a human's choice and which were the classifier's unreviewed guess, so none were 
 classifier would guess today). Treat `null`/`"—"` on a row from before this Issue shipped as
 "unknown," not as "a human definitely chose this."
 
+**Specific categories (Issue #50):** the original 7 broad categories were replaced with 20
+specific ones (e.g. "Food & Dining" became Groceries, Restaurants & Bars, Coffee Shops, and Food
+Delivery). `CATEGORIES` in `app/categorize.py` is the single backend source for the list: the
+API's `Literal` validation and the `ck_expenses_category_allowed` database check constraint are
+both built from it, and `frontend/src/types.ts` mirrors it by hand. Rule order in
+`_KEYWORD_RULES` is also the tie-break order when more than one category matches. Migration
+`3c86f19d4985` converted existing rows: a row with non-null `confidence` was re-run through the
+new rules, and a row with `null` `confidence` was never re-guessed but mapped to a fixed new name
+within its old group (Food & Dining to Restaurants & Bars, Transportation to Rideshare & Transit,
+Housing & Utilities to Utilities, Shopping to General Merchandise, Entertainment to Movies &
+Events, Health & Fitness to Medical). Per the caveat above, that includes rows from before
+confidence existed, so their specific name is a default, not a guess. The downgrade maps each new
+name back to its old group.
+
 These are the established Expense-resource API decisions. Authentication and deployment
 decisions follow below.
 
