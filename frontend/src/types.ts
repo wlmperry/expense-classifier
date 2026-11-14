@@ -1,12 +1,25 @@
 // Mirrors app/categorize.py's CATEGORIES -- keep these two lists in sync by hand;
 // there's no endpoint exposing the list, since it's small and rarely changes.
 export const CATEGORIES = [
-    "Food & Dining",
-    "Transportation",
-    "Housing & Utilities",
-    "Shopping",
-    "Entertainment",
-    "Health & Fitness",
+    "Groceries",
+    "Restaurants & Bars",
+    "Coffee Shops",
+    "Food Delivery",
+    "Gas & Fuel",
+    "Rideshare & Transit",
+    "Travel",
+    "Rent & Mortgage",
+    "Utilities",
+    "Online Shopping",
+    "General Merchandise",
+    "Electronics",
+    "Clothing",
+    "Streaming & Subscriptions",
+    "Movies & Events",
+    "Gaming",
+    "Pharmacy",
+    "Gym & Fitness",
+    "Medical",
     "Other",
 ] as const
 

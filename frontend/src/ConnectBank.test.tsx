@@ -43,7 +43,7 @@ const IMPORTED_EXPENSE: Expense = {
   description: "Uber 072515 SF**POOL**",
   amount: "6.33",
   expense_date: "2026-10-31",
-  category: "Transportation",
+  category: "Rideshare & Transit",
   confidence: "0.9",
 }
 

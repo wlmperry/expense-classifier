@@ -17,7 +17,7 @@ const EXISTING_EXPENSE = {
   description: 'Fuel',
   amount: '42.00',
   expense_date: '2026-09-02',
-  category: 'Transportation',
+  category: 'Rideshare & Transit',
   confidence: null,
 }
 
@@ -139,7 +139,7 @@ describe('ExpenseForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/failed to fetch/i)
   })
 
-  it('offers exactly the seven allowed categories plus auto-detect, defaulting to auto-detect', () => {
+  it('offers exactly the allowed categories plus auto-detect, defaulting to auto-detect', () => {
     render(<ExpenseForm {...noop} />)
 
     const select = screen.getByLabelText(/category/i) as HTMLSelectElement
@@ -147,12 +147,25 @@ describe('ExpenseForm', () => {
 
     expect(options).toEqual([
       '',
-      'Food & Dining',
-      'Transportation',
-      'Housing & Utilities',
-      'Shopping',
-      'Entertainment',
-      'Health & Fitness',
+      'Groceries',
+      'Restaurants & Bars',
+      'Coffee Shops',
+      'Food Delivery',
+      'Gas & Fuel',
+      'Rideshare & Transit',
+      'Travel',
+      'Rent & Mortgage',
+      'Utilities',
+      'Online Shopping',
+      'General Merchandise',
+      'Electronics',
+      'Clothing',
+      'Streaming & Subscriptions',
+      'Movies & Events',
+      'Gaming',
+      'Pharmacy',
+      'Gym & Fitness',
+      'Medical',
       'Other',
     ])
     expect(select).toHaveValue('')
@@ -174,20 +187,20 @@ describe('ExpenseForm', () => {
     const fetchMock = stubFetch({ ok: true, body: SAVED_EXPENSE })
     render(<ExpenseForm {...noop} />)
 
-    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Entertainment' } })
+    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Movies & Events' } })
     fillAndSubmit()
     await screen.findByRole('status')
 
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const body = JSON.parse(init.body as string)
-    expect(body.category).toBe('Entertainment')
+    expect(body.category).toBe('Movies & Events')
   })
 
   it('resets the category dropdown back to auto-detect after a successful save', async () => {
     stubFetch({ ok: true, body: SAVED_EXPENSE })
     render(<ExpenseForm {...noop} />)
 
-    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Shopping' } })
+    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'General Merchandise' } })
     fillAndSubmit()
     await screen.findByRole('status')
 

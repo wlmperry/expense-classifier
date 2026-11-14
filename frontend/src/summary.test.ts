@@ -36,31 +36,31 @@ describe('summarizeSpending', () => {
 
   it('totals each category and sorts highest spend first', () => {
     const summary = summarizeSpending([
-      expense('3.50', 'Food & Dining'),
-      expense('42.00', 'Transportation'),
-      expense('6.50', 'Food & Dining'),
-      expense('48.00', 'Shopping'),
+      expense('3.50', 'Restaurants & Bars'),
+      expense('42.00', 'Rideshare & Transit'),
+      expense('6.50', 'Restaurants & Bars'),
+      expense('48.00', 'General Merchandise'),
     ])
 
     expect(summary.totalCents).toBe(10000)
     expect(summary.count).toBe(4)
     expect(summary.byCategory).toEqual([
-      { category: 'Shopping', totalCents: 4800, count: 1, percent: 48 },
-      { category: 'Transportation', totalCents: 4200, count: 1, percent: 42 },
-      { category: 'Food & Dining', totalCents: 1000, count: 2, percent: 10 },
+      { category: 'General Merchandise', totalCents: 4800, count: 1, percent: 48 },
+      { category: 'Rideshare & Transit', totalCents: 4200, count: 1, percent: 42 },
+      { category: 'Restaurants & Bars', totalCents: 1000, count: 2, percent: 10 },
     ])
   })
 
   it('leaves out categories with no expenses', () => {
-    const summary = summarizeSpending([expense('5.00', 'Entertainment')])
+    const summary = summarizeSpending([expense('5.00', 'Movies & Events')])
 
-    expect(summary.byCategory.map((row) => row.category)).toEqual(['Entertainment'])
+    expect(summary.byCategory.map((row) => row.category)).toEqual(['Movies & Events'])
   })
 
   it('breaks ties in spend by category name so the order is stable', () => {
-    const summary = summarizeSpending([expense('10.00', 'Shopping'), expense('10.00', 'Entertainment')])
+    const summary = summarizeSpending([expense('10.00', 'Movies & Events'), expense('10.00', 'General Merchandise')])
 
-    expect(summary.byCategory.map((row) => row.category)).toEqual(['Entertainment', 'Shopping'])
+    expect(summary.byCategory.map((row) => row.category)).toEqual(['General Merchandise', 'Movies & Events'])
   })
 })
 
