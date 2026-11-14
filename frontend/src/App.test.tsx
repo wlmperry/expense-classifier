@@ -71,8 +71,8 @@ describe('App', () => {
     stubFetch({
       ok: true,
       body: [
-        { id: 1, merchant: 'Corner Store', description: 'Coffee', amount: '3.50', expense_date: '2026-09-01', category: 'Food & Dining', confidence: '0.9' },
-        { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Transportation', confidence: null },
+        { id: 1, merchant: 'Corner Store', description: 'Coffee', amount: '3.50', expense_date: '2026-09-01', category: 'Coffee Shops', confidence: '0.9' },
+        { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Gas & Fuel', confidence: null },
       ],
     })
 
@@ -266,8 +266,8 @@ describe('App', () => {
   })
 
   describe('spending summary', () => {
-    const coffee = { ...oneExpense, category: 'Food & Dining', confidence: null }
-    const fuel = { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Transportation', confidence: null }
+    const coffee = { ...oneExpense, category: 'Coffee Shops', confidence: null }
+    const fuel = { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Gas & Fuel', confidence: null }
 
     function summaryRegion() {
       return screen.getByRole('region', { name: /spending summary/i })
@@ -286,10 +286,10 @@ describe('App', () => {
       const rows = within(summary.getByRole('list', { name: /spending by category/i })).getAllByRole('listitem')
       expect(rows).toHaveLength(2)
       // Highest spend first.
-      expect(rows[0]).toHaveTextContent('Transportation')
+      expect(rows[0]).toHaveTextContent('Gas & Fuel')
       expect(rows[0]).toHaveTextContent('$42.00')
       expect(rows[0]).toHaveTextContent('92%')
-      expect(rows[1]).toHaveTextContent('Food & Dining')
+      expect(rows[1]).toHaveTextContent('Coffee Shops')
       expect(rows[1]).toHaveTextContent('$3.50')
       expect(rows[1]).toHaveTextContent('8%')
     })
@@ -388,7 +388,7 @@ describe('App', () => {
 
       const summary = within(summaryRegion())
       expect(await summary.findByText('$3.50', { selector: '.summary-card__total-amount' })).toBeInTheDocument()
-      expect(summary.queryByText('Transportation')).not.toBeInTheDocument()
+      expect(summary.queryByText('Gas & Fuel')).not.toBeInTheDocument()
     })
   })
 })

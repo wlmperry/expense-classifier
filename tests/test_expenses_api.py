@@ -366,7 +366,7 @@ def test_create_expense_persists_and_returns_created_expense(client, db_session)
     assert body["description"] == "S RED BULL 8.4C"
     assert body["amount"] == "2.75"
     assert body["expense_date"] == "2026-08-29"
-    assert body["category"] == "Shopping"
+    assert body["category"] == "General Merchandise"
 
     persisted = db_session.get(Expense, body["id"])
     assert persisted is not None
@@ -374,7 +374,7 @@ def test_create_expense_persists_and_returns_created_expense(client, db_session)
     assert persisted.description == "S RED BULL 8.4C"
     assert persisted.amount == Decimal("2.75")
     assert persisted.expense_date == date(2026, 8, 29)
-    assert persisted.category == "Shopping"
+    assert persisted.category == "General Merchandise"
 
 
 def test_create_expense_classifies_category_when_omitted(client):
@@ -389,7 +389,7 @@ def test_create_expense_classifies_category_when_omitted(client):
     )
 
     assert response.status_code == 201
-    assert response.json()["category"] == "Food & Dining"
+    assert response.json()["category"] == "Coffee Shops"
 
 
 def test_create_expense_respects_explicit_category_over_classifier(client):
@@ -400,16 +400,16 @@ def test_create_expense_respects_explicit_category_over_classifier(client):
             "description": "Coffee",
             "amount": "4.50",
             "expense_date": "2026-08-29",
-            "category": "Entertainment",
+            "category": "Movies & Events",
         },
     )
 
     assert response.status_code == 201
-    assert response.json()["category"] == "Entertainment"
+    assert response.json()["category"] == "Movies & Events"
 
 
 def test_create_expense_sets_confidence_when_category_is_classified(client):
-    # "starbucks" and "coffee" both match Food & Dining, so this is a
+    # "starbucks" and "coffee" both match Coffee Shops, so this is a
     # high-confidence (multi-keyword, single-category) match.
     response = client.post(
         "/expenses",
@@ -433,7 +433,7 @@ def test_create_expense_leaves_confidence_null_when_category_is_explicit(client)
             "description": "Coffee",
             "amount": "4.50",
             "expense_date": "2026-08-29",
-            "category": "Entertainment",
+            "category": "Movies & Events",
         },
     )
 
@@ -510,7 +510,7 @@ def _seed_one_expense(db_session) -> Expense:
         description="S RED BULL 8.4C",
         amount=Decimal("2.75"),
         expense_date=date(2026, 8, 29),
-        category="Shopping",
+        category="General Merchandise",
     )
     db_session.add(expense)
     db_session.flush()
@@ -532,7 +532,7 @@ def test_update_expense_updates_given_fields_and_leaves_the_rest(client, db_sess
     assert body["description"] == "Updated snack run"
     assert body["merchant"] == "DOLLAR GENERAL STORE #16600"
     assert body["expense_date"] == "2026-08-29"
-    assert body["category"] == "Shopping"
+    assert body["category"] == "General Merchandise"
 
     db_session.refresh(expense)
     assert expense.amount == Decimal("9.99")
@@ -545,13 +545,13 @@ def test_update_expense_does_not_reclassify_category_when_merchant_changes(clien
     response = client.patch(f"/expenses/{expense.id}", json={"merchant": "STARBUCKS #1234"})
 
     assert response.status_code == 200
-    assert response.json()["category"] == "Shopping"
+    assert response.json()["category"] == "General Merchandise"
 
 
 def test_update_expense_nulls_confidence_when_merchant_changes_without_category(
     client, db_session
 ):
-    # category stays "Shopping", but the confidence that described the old
+    # category stays "General Merchandise", but the confidence that described the old
     # merchant text no longer describes "STARBUCKS #1234".
     expense = _seed_one_expense(db_session)
     expense.confidence = Decimal("0.75")
@@ -570,7 +570,7 @@ def test_update_expense_resending_the_same_category_value_leaves_confidence_alon
     expense.confidence = Decimal("0.75")
     db_session.flush()
 
-    response = client.patch(f"/expenses/{expense.id}", json={"category": "Shopping"})
+    response = client.patch(f"/expenses/{expense.id}", json={"category": "General Merchandise"})
 
     assert response.status_code == 200
     assert response.json()["confidence"] == "0.75"
@@ -579,10 +579,10 @@ def test_update_expense_resending_the_same_category_value_leaves_confidence_alon
 def test_update_expense_accepts_explicit_category_override(client, db_session):
     expense = _seed_one_expense(db_session)
 
-    response = client.patch(f"/expenses/{expense.id}", json={"category": "Entertainment"})
+    response = client.patch(f"/expenses/{expense.id}", json={"category": "Movies & Events"})
 
     assert response.status_code == 200
-    assert response.json()["category"] == "Entertainment"
+    assert response.json()["category"] == "Movies & Events"
 
 
 def test_update_expense_nulls_confidence_when_category_is_set(client, db_session):
@@ -590,7 +590,7 @@ def test_update_expense_nulls_confidence_when_category_is_set(client, db_session
     expense.confidence = Decimal("0.75")
     db_session.flush()
 
-    response = client.patch(f"/expenses/{expense.id}", json={"category": "Entertainment"})
+    response = client.patch(f"/expenses/{expense.id}", json={"category": "Movies & Events"})
 
     assert response.status_code == 200
     assert response.json()["confidence"] is None
@@ -705,7 +705,7 @@ def test_update_expense_does_not_affect_other_expenses(client, db_session):
         description="HAMMER",
         amount=Decimal("19.99"),
         expense_date=date(2026, 1, 5),
-        category="Shopping",
+        category="General Merchandise",
     )
     db_session.add(other)
     db_session.flush()
