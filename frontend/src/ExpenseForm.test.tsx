@@ -17,7 +17,7 @@ const EXISTING_EXPENSE = {
   description: 'Fuel',
   amount: '42.00',
   expense_date: '2026-09-02',
-  category: 'Rideshare & Transit',
+  category: 'Gas & Fuel',
   confidence: null,
 }
 

@@ -130,6 +130,15 @@ def test_rule_order_breaks_a_tie_between_specific_categories():
     assert classify_with_confidence("Kroger Grocery Store") == ("Groceries", Decimal("0.5"))
 
 
+def test_generic_store_keyword_loses_ties_to_clothing_and_electronics():
+    # "store" (General Merchandise) is a separate word in each of these, so
+    # each is a tie. General Merchandise is listed after Electronics and
+    # Clothing, so the specific category wins.
+    assert classify_with_confidence("Nike Store") == ("Clothing", Decimal("0.5"))
+    assert classify_with_confidence("Clothing Store") == ("Clothing", Decimal("0.5"))
+    assert classify_with_confidence("Electronics Store") == ("Electronics", Decimal("0.5"))
+
+
 def test_classify_matches_classify_with_confidences_category():
     for merchant in ["Starbucks", "Target Pharmacy", "Unknown Co", "CVS Pharmacy"]:
         assert classify(merchant) == classify_with_confidence(merchant)[0]

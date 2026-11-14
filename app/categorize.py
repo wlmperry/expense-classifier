@@ -35,9 +35,9 @@ CATEGORIES: tuple[str, ...] = (
 
 # Rule order is also the tie-break order: when keywords from more than one
 # category match, classify_with_confidence() returns the first one listed
-# here. That's why Groceries sits above General Merchandise ("Kroger Grocery
-# Store" matches both "grocery" and "store", and Groceries is the better
-# guess).
+# here. That's why General Merchandise sits below Groceries, Electronics and
+# Clothing: its "store" keyword is generic, so it should lose those ties
+# ("Kroger Grocery Store" is Groceries, "Nike Store" is Clothing).
 _KEYWORD_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "Groceries",
@@ -55,9 +55,9 @@ _KEYWORD_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Rent & Mortgage", ("rent", "landlord", "mortgage")),
     ("Utilities", ("electric", "water bill", "internet", "comcast", "utility", "utilities")),
     ("Online Shopping", ("amazon", "ebay", "etsy")),
-    ("General Merchandise", ("target", "walmart", "costco", "store", "mall")),
     ("Electronics", ("best buy", "apple store", "electronics")),
     ("Clothing", ("clothing", "apparel", "shoes", "nike")),
+    ("General Merchandise", ("target", "walmart", "costco", "store", "mall")),
     ("Streaming & Subscriptions", ("netflix", "spotify", "hulu", "disney+")),
     ("Movies & Events", ("movie", "theatre", "theater", "cinema", "concert", "ticketmaster")),
     ("Gaming", ("steam", "xbox", "playstation", "nintendo")),

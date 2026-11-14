@@ -9,10 +9,23 @@ category check constraint has to be dropped before any row is converted,
 since the old constraint rejects every new name, and recreated afterward
 with the new list.
 
-Both lists are copied into this file rather than imported from
+Both category lists are copied into this file rather than imported from
 app/categorize.py on purpose: a migration describes one fixed step in the
-database's history, so it must keep doing the same thing even after
-CATEGORIES changes again in some later Issue.
+database's history, so its allowed names must not change when CATEGORIES
+changes again in some later Issue.
+
+The keyword rules are NOT frozen, though. Rows with a confidence score are
+re-guessed by importing the live classify_with_confidence(), because copying
+every keyword rule in here would be a lot of duplication. That has two
+consequences:
+  - Later keyword edits change which category this migration picks for a
+    row. A guess outside NEW_CATEGORIES still falls back to the fixed
+    OLD_TO_NEW_DEFAULT mapping, so the constraint is never violated.
+  - If classify_with_confidence() is ever renamed or removed (for example
+    when the ML classifier replaces it), this import breaks, and so does
+    `alembic upgrade head` on any database below this revision, including
+    a fresh empty one. Keep a function with this name and signature in
+    app/categorize.py, or change this import when you do that.
 """
 from collections.abc import Sequence
 
