@@ -3,6 +3,7 @@ import { deleteExpense, fetchExpenses } from "./api"
 import ConnectBank from "./ConnectBank"
 import ExpenseForm from "./ExpenseForm"
 import SpendingSummary from "./SpendingSummary"
+import { DEFAULT_SORT, SORT_OPTIONS, sortExpenses, type SortOption } from "./sortExpenses"
 import type { Expense } from "./types"
 
 function App() {
@@ -11,6 +12,11 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
+  const [sortOption, setSortOption] = useState<SortOption>(DEFAULT_SORT)
+
+  // Sorting happens at render time rather than in state, so added, edited,
+  // and imported expenses land in the right place without any extra work.
+  const sortedExpenses = sortExpenses(expenses, sortOption)
 
   useEffect(() => {
     fetchExpenses()
@@ -19,14 +25,11 @@ function App() {
       .finally(() => setLoading(false))
   }, [])
 
-  // The list is ordered by id and a new Expense always gets the highest id,
-  // so appending matches what a fresh GET /expenses would return.
+  // Display order comes from sortedExpenses, so new rows can simply be appended.
   function handleCreated(expense: Expense) {
     setExpenses((current) => [...current, expense])
   }
 
-  // Same append reasoning as handleCreated: Plaid-imported expenses are
-  // newly inserted, so they always carry the highest ids so far.
   function handleImported(imported: Expense[]) {
     setExpenses((current) => [...current, ...imported])
   }
@@ -80,6 +83,19 @@ function App() {
           <section className="card expenses-card" aria-labelledby="expenses-heading">
             <div className="expenses-card__header">
               <h2 id="expenses-heading">All expenses</h2>
+              <label className="sort-control">
+                Sort by
+                <select
+                  value={sortOption}
+                  onChange={(event) => setSortOption(event.target.value as SortOption)}
+                >
+                  {Object.entries(SORT_OPTIONS).map(([value, { label }]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
             {loading && <p className="expenses-card__message">Loading expenses...</p>}
             {error && (
@@ -112,7 +128,7 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {expenses.map((expense) => (
+                    {sortedExpenses.map((expense) => (
                       <tr key={expense.id}>
                         <td className="col-merchant">{expense.merchant}</td>
                         <td>{expense.description}</td>

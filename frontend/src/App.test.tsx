@@ -265,6 +265,74 @@ describe('App', () => {
     expect(screen.getByText('Corner Store')).toBeInTheDocument()
   })
 
+  describe('sorting', () => {
+    const older = { id: 1, merchant: 'Corner Store', description: 'Coffee', amount: '3.50', expense_date: '2026-09-01', category: 'Coffee Shops', confidence: null }
+    const newer = { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-05', category: 'Gas & Fuel', confidence: null }
+    const middle = { id: 3, merchant: 'Book Shop', description: 'Novel', amount: '9.00', expense_date: '2026-09-03', category: 'Other', confidence: null }
+
+    // Merchant names in the order the table currently shows them.
+    function displayedMerchants() {
+      return screen
+        .getAllByRole('row')
+        .slice(1) // skip the header row
+        .map((row) => within(row).getAllByRole('cell')[0].textContent)
+    }
+
+    it('shows expenses newest first by default', async () => {
+      stubFetch({ ok: true, body: [older, newer, middle] })
+
+      render(<App />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+      expect(screen.getByLabelText(/sort by/i)).toHaveValue('date-desc')
+      expect(displayedMerchants()).toEqual(['Gas Station', 'Book Shop', 'Corner Store'])
+    })
+
+    it('reorders the list when a different sort option is chosen', async () => {
+      stubFetch({ ok: true, body: [older, newer, middle] })
+
+      render(<App />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+      fireEvent.change(screen.getByLabelText(/sort by/i), { target: { value: 'amount-desc' } })
+      expect(displayedMerchants()).toEqual(['Gas Station', 'Book Shop', 'Corner Store'])
+
+      fireEvent.change(screen.getByLabelText(/sort by/i), { target: { value: 'amount-asc' } })
+      expect(displayedMerchants()).toEqual(['Corner Store', 'Book Shop', 'Gas Station'])
+
+      fireEvent.change(screen.getByLabelText(/sort by/i), { target: { value: 'date-asc' } })
+      expect(displayedMerchants()).toEqual(['Corner Store', 'Book Shop', 'Gas Station'])
+    })
+
+    it('places a newly added expense according to the current sort', async () => {
+      const added = { id: 4, merchant: 'Nike Store', description: 'Shoes', amount: '80.00', expense_date: '2026-09-04', category: 'Clothing', confidence: '1' }
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: RequestInit) =>
+          stubPlaidLinkToken(url) ??
+          Promise.resolve({
+            ok: true,
+            status: init?.method === 'POST' ? 201 : 200,
+            json: () => Promise.resolve(init?.method === 'POST' ? added : [older, newer, middle]),
+          }),
+        ),
+      )
+
+      render(<App />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+      fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Nike Store' } })
+      fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Shoes' } })
+      fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '80.00' } })
+      fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: '2026-09-04' } })
+      fireEvent.click(screen.getByRole('button', { name: /add expense/i }))
+
+      expect(await screen.findByRole('cell', { name: 'Nike Store' })).toBeInTheDocument()
+      // 2026-09-04 sits between Gas Station (09-05) and Book Shop (09-03), not at the bottom.
+      expect(displayedMerchants()).toEqual(['Gas Station', 'Nike Store', 'Book Shop', 'Corner Store'])
+    })
+  })
+
   describe('spending summary', () => {
     const coffee = { ...oneExpense, category: 'Coffee Shops', confidence: null }
     const fuel = { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Gas & Fuel', confidence: null }
