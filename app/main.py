@@ -1,6 +1,5 @@
 import json
-from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from collections.abc import Callable
 from datetime import date
 from decimal import Decimal
 from typing import Literal, TypeVar
@@ -21,23 +20,34 @@ from plaid.model.sandbox_public_token_create_request import (
 from plaid.model.transaction import Transaction
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth import get_api_token, require_auth_token
+from app.auth import (
+    authenticate,
+    create_session,
+    get_current_session,
+    get_current_user,
+    hash_password,
+)
 from app.categorize import classify_with_confidence
 from app.database import get_db
-from app.models import Expense, PlaidItem
+from app.models import Expense, PlaidItem, User, UserSession
 from app.plaid_client import get_plaid_client
 from app.schemas import (
+    AuthResponse,
     ExpenseCreate,
     ExpenseRead,
     ExpenseUpdate,
+    LoginRequest,
     PlaidExchangePublicTokenRequest,
     PlaidExchangePublicTokenResponse,
     PlaidItemStatusResponse,
     PlaidLinkTokenResponse,
     PlaidSandboxPublicTokenResponse,
     PlaidSyncResponse,
+    RegisterRequest,
+    UserRead,
 )
 
 SortOption = Literal["expense_date", "-expense_date", "amount", "-amount"]
@@ -105,17 +115,7 @@ def _expense_from_transaction(transaction: Transaction) -> Expense | None:
         plaid_transaction_id=transaction.transaction_id,
     )
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Fails fast at startup, like app/database.py's engine construction
-    # already does for DATABASE_URL, instead of on the first protected
-    # request. Not checked at import time: tests override API_AUTH_TOKEN
-    # per-test, after this module has already been imported.
-    get_api_token()
-    yield
-
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -132,7 +132,63 @@ def read_root() -> dict[str, str]:
     return {"status":"ok"}
 
 
-@app.get("/expenses", dependencies=[Depends(require_auth_token)])
+@app.post("/auth/register", status_code=status.HTTP_201_CREATED)
+def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthResponse:
+    """Create an account and log it in straight away.
+
+    Anyone can sign up. A 409 for an email that's taken does reveal that the
+    email has an account, which is the normal tradeoff for open sign-up:
+    the person signing up needs to know why it failed.
+    """
+    user = User(email=payload.email, password_hash=hash_password(payload.password))
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        # The unique constraint on users.email is the real check, so two
+        # sign-ups racing for the same email can't both succeed.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists",
+        ) from exc
+    db.refresh(user)
+    return AuthResponse(token=create_session(db, user), user=UserRead.model_validate(user))
+
+
+@app.post("/auth/login")
+def login(payload: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
+    """Exchange an email and password for a session token.
+
+    Unknown email and wrong password get the same 401 and message, so this
+    endpoint can't be used to find out which emails have accounts.
+    """
+    user = authenticate(db, payload.email, payload.password)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+    return AuthResponse(token=create_session(db, user), user=UserRead.model_validate(user))
+
+
+@app.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(
+    session: UserSession = Depends(get_current_session), db: Session = Depends(get_db)
+) -> None:
+    """End the current session. Its token stops working immediately."""
+    db.delete(session)
+    db.commit()
+
+
+@app.get("/auth/me")
+def read_current_user(user: User = Depends(get_current_user)) -> UserRead:
+    """Who the current session belongs to. The frontend calls this on page
+    load to check that a saved token is still valid."""
+    return user
+
+
+@app.get("/expenses", dependencies=[Depends(get_current_user)])
 def list_expenses(
     limit: int | None = Query(default=None, gt=0, le=100),
     offset: int = Query(default=0, ge=0, le=9223372036854775807),
@@ -183,7 +239,7 @@ def list_expenses(
 @app.post(
     "/expenses",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_auth_token)],
+    dependencies=[Depends(get_current_user)],
 )
 def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> ExpenseRead:
     """Persist one Expense and return the resulting persisted representation.
@@ -212,7 +268,7 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> Exp
     return expense
 
 
-@app.patch("/expenses/{expense_id}", dependencies=[Depends(require_auth_token)])
+@app.patch("/expenses/{expense_id}", dependencies=[Depends(get_current_user)])
 def update_expense(
     payload: ExpenseUpdate,
     expense_id: int = Path(le=2147483647),
@@ -266,7 +322,7 @@ def update_expense(
 @app.delete(
     "/expenses/{expense_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_auth_token)],
+    dependencies=[Depends(get_current_user)],
 )
 def delete_expense(
     expense_id: int = Path(le=2147483647), db: Session = Depends(get_db)
@@ -287,7 +343,7 @@ def delete_expense(
     db.commit()
 
 
-@app.get("/plaid/item", dependencies=[Depends(require_auth_token)])
+@app.get("/plaid/item", dependencies=[Depends(get_current_user)])
 def get_plaid_item_status(db: Session = Depends(get_db)) -> PlaidItemStatusResponse:
     """Report whether this project's single demo user already has a bank
     linked, so the frontend can disable Connect bank instead of letting a
@@ -305,7 +361,7 @@ def get_plaid_item_status(db: Session = Depends(get_db)) -> PlaidItemStatusRespo
     return PlaidItemStatusResponse(item_id=item.item_id if item is not None else None)
 
 
-@app.post("/plaid/link-token", dependencies=[Depends(require_auth_token)])
+@app.post("/plaid/link-token", dependencies=[Depends(get_current_user)])
 def create_plaid_link_token() -> PlaidLinkTokenResponse:
     """Create a Plaid Link token for the frontend to open Link with.
 
@@ -331,7 +387,7 @@ def create_plaid_link_token() -> PlaidLinkTokenResponse:
 @app.post(
     "/plaid/sandbox/public-token",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_auth_token)],
+    dependencies=[Depends(get_current_user)],
 )
 def create_sandbox_public_token() -> PlaidSandboxPublicTokenResponse:
     """Sandbox-only: simulate a user finishing Link against a fake bank,
@@ -352,7 +408,7 @@ def create_sandbox_public_token() -> PlaidSandboxPublicTokenResponse:
 @app.post(
     "/plaid/exchange-public-token",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_auth_token)],
+    dependencies=[Depends(get_current_user)],
 )
 def exchange_public_token(
     payload: PlaidExchangePublicTokenRequest, db: Session = Depends(get_db)
@@ -386,7 +442,7 @@ def exchange_public_token(
 @app.post(
     "/plaid/sync/{item_id}",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_auth_token)],
+    dependencies=[Depends(get_current_user)],
 )
 def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> PlaidSyncResponse:
     """Pull every new, changed, and removed transaction for a linked Item

@@ -15,12 +15,18 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-from app import models  # noqa: F401  # registers Expense on Base.metadata
-from app.auth import require_auth_token
+from app import models  # noqa: F401  # registers every model on Base.metadata
+from app.auth import create_session, hash_password
 from app.database import Base, get_db
 from app.main import app
+from app.models import User
 
 load_dotenv()
+
+TEST_USER_PASSWORD = "correct-horse-battery"
+# Hashed once per test run instead of once per test: Argon2id is slow on
+# purpose, and almost every test needs a user.
+_TEST_USER_PASSWORD_HASH = hash_password(TEST_USER_PASSWORD)
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL")
 
@@ -80,37 +86,47 @@ def db_session(test_engine):
         connection.close()
 
 
+def make_user(db_session, email: str) -> User:
+    """Insert a user whose password is TEST_USER_PASSWORD."""
+    user = User(email=email, password_hash=_TEST_USER_PASSWORD_HASH)
+    db_session.add(user)
+    db_session.flush()
+    return user
+
+
 @pytest.fixture
-def client(db_session):
+def user(db_session):
+    """The user `client` is logged in as."""
+    return make_user(db_session, "test-user@example.com")
+
+
+@pytest.fixture
+def other_user(db_session):
+    """A second user, for checking that users can't see each other's data."""
+    return make_user(db_session, "other-user@example.com")
+
+
+@pytest.fixture
+def unauthenticated_client(db_session):
     """A TestClient whose requests run inside `db_session`'s rolled-back
-    transaction, instead of the app's real DATABASE_URL session. The shared
-    auth dependency is also overridden to a no-op, so existing tests don't
-    need an Authorization header; tests/test_auth.py exercises the real
-    dependency separately via unauthenticated_client below."""
+    transaction, instead of the app's real DATABASE_URL session. Sends no
+    Authorization header, so protected routes return 401."""
 
     def override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[require_auth_token] = lambda: None
     try:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_db, None)
-        app.dependency_overrides.pop(require_auth_token, None)
 
 
 @pytest.fixture
-def unauthenticated_client(db_session, monkeypatch):
-    """Like `client`, but the real auth dependency is left in place --
-    used only by tests/test_auth.py to exercise it directly."""
-    monkeypatch.setenv("API_AUTH_TOKEN", "test-secret-token")
-
-    def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    try:
-        yield TestClient(app)
-    finally:
-        app.dependency_overrides.pop(get_db, None)
+def client(unauthenticated_client, db_session, user):
+    """Like unauthenticated_client, but logged in as `user` through a real
+    session, so every request goes through the real auth dependency."""
+    # A separate TestClient, so a test that uses both fixtures still has
+    # one client without the header.
+    token = create_session(db_session, user)
+    return TestClient(app, headers={"Authorization": f"Bearer {token}"})
