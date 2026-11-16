@@ -30,7 +30,6 @@ exactly reproducible from the CSV.
 
 import csv
 import re
-from decimal import Decimal
 from functools import cache
 from pathlib import Path
 
@@ -90,11 +89,13 @@ def get_model() -> Pipeline:
     return train_model(*load_training_data())
 
 
-def predict(merchant: str, description: str = "") -> tuple[str, Decimal]:
-    """The model's best category for this expense and its probability,
-    rounded to two decimal places to fit the confidence column."""
+def predict(merchant: str, description: str = "") -> tuple[str, float]:
+    """The model's best category for this expense and its exact probability.
+
+    Not rounded here: categorize() compares the exact value against its
+    threshold, the same way scripts/evaluate_classifier.py does, and rounds
+    only when storing it."""
     model = get_model()
     probabilities = model.predict_proba([normalize(merchant, description)])[0]
     best = probabilities.argmax()
-    confidence = Decimal(str(round(float(probabilities[best]), 2)))
-    return str(model.classes_[best]), confidence
+    return str(model.classes_[best]), float(probabilities[best])

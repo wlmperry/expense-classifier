@@ -126,8 +126,12 @@ def categorize(merchant: str, description: str = "") -> Categorization:
     from app.ml_classifier import predict
 
     category, probability = predict(merchant, description)
+    # Compared before rounding, so the cutoff is exactly the one
+    # scripts/evaluate_classifier.py reports (a raw 0.196 is below 0.2 even
+    # though it would round to 0.20). Rounded only for storage.
     if probability >= MIN_MODEL_CONFIDENCE and category != "Other":
-        return Categorization(category, probability, source="model")
+        confidence = Decimal(str(round(float(probability), 2)))
+        return Categorization(category, confidence, source="model")
     return Categorization("Other", Decimal("0.2"), source=None)
 
 

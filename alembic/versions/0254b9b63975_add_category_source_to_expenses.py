@@ -7,10 +7,13 @@ Create Date: 2026-11-16
 Records which step categorized an expense, "rules" or "model" (Issue #55),
 so the UI can show whether the ML classifier was involved.
 
-Every existing row with a confidence score was categorized by the keyword
-rules, since the ML model did not exist before this migration, so those rows
-are backfilled with "rules". Rows without a confidence score stay null:
-their category isn't an automatic guess.
+Every existing row with a confidence score was categorized automatically
+before the ML model existed, so by the keyword rules -- except "Other": an
+expense no rule matched was stored as ("Other", 0.2), and the new code
+stores that same situation with no source. So rows with a confidence score
+are backfilled with "rules" unless their category is Other (no keyword rule
+ever returns Other). Rows without a confidence score stay null: their
+category isn't an automatic guess.
 """
 from collections.abc import Sequence
 
@@ -33,7 +36,10 @@ def upgrade() -> None:
         'expenses',
         "category_source IS NULL OR category_source IN ('rules', 'model')",
     )
-    op.execute("UPDATE expenses SET category_source = 'rules' WHERE confidence IS NOT NULL")
+    op.execute(
+        "UPDATE expenses SET category_source = 'rules' "
+        "WHERE confidence IS NOT NULL AND category <> 'Other'"
+    )
 
 
 def downgrade() -> None:

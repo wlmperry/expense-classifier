@@ -47,6 +47,21 @@ def test_an_unsure_model_guess_falls_back_to_other(monkeypatch):
     assert result == Categorization("Other", Decimal("0.2"), source=None)
 
 
+def test_the_threshold_applies_before_rounding(monkeypatch):
+    # 0.196 would round to 0.20, but it is still below the 0.2 cutoff.
+    monkeypatch.setattr(ml_classifier, "predict", lambda *_: ("Gaming", 0.196))
+
+    result = categorize("Something Unknown", "")
+
+    assert result == Categorization("Other", Decimal("0.2"), source=None)
+
+
+def test_a_used_model_probability_is_stored_rounded(monkeypatch):
+    monkeypatch.setattr(ml_classifier, "predict", lambda *_: ("Gaming", 0.8137))
+
+    assert categorize("Something Unknown", "").confidence == Decimal("0.81")
+
+
 def test_a_confident_model_guess_at_the_threshold_is_used(monkeypatch):
     monkeypatch.setattr(ml_classifier, "predict", lambda *_: ("Gaming", Decimal("0.2")))
 
