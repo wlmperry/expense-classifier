@@ -1,5 +1,6 @@
 import json
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from datetime import date
 from decimal import Decimal
 from typing import Literal, TypeVar
@@ -30,8 +31,9 @@ from app.auth import (
     get_current_user,
     hash_password,
 )
-from app.categorize import classify_with_confidence
+from app.categorize import categorize
 from app.database import get_db
+from app.ml_classifier import get_model
 from app.models import Expense, PlaidItem, User, UserSession
 from app.plaid_client import get_plaid_client
 from app.schemas import (
@@ -104,19 +106,28 @@ def _expense_from_transaction(transaction: Transaction, user_id: int) -> Expense
     if transaction.amount <= 0:
         return None
     merchant = transaction.merchant_name or transaction.name
-    category, confidence = classify_with_confidence(merchant, transaction.name)
+    result = categorize(merchant, transaction.name)
     return Expense(
         user_id=user_id,
         merchant=merchant,
         description=transaction.name,
         amount=Decimal(str(transaction.amount)).quantize(Decimal("0.01")),
         expense_date=transaction.date,
-        category=category,
-        confidence=confidence,
+        category=result.category,
+        confidence=result.confidence,
+        category_source=result.source,
         plaid_transaction_id=transaction.transaction_id,
     )
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Train the ML classifier once at startup, so the first expense added
+    # after a deploy doesn't wait for it. get_model() caches the result.
+    get_model()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -269,9 +280,10 @@ def create_expense(
     decisions" for the request/response shape and wire-format guarantees.
     """
     if payload.category is not None:
-        category, confidence = payload.category, None
+        category, confidence, source = payload.category, None, None
     else:
-        category, confidence = classify_with_confidence(payload.merchant, payload.description)
+        result = categorize(payload.merchant, payload.description)
+        category, confidence, source = result.category, result.confidence, result.source
     expense = Expense(
         user_id=user.id,
         merchant=payload.merchant,
@@ -280,6 +292,7 @@ def create_expense(
         expense_date=payload.expense_date,
         category=category,
         confidence=confidence,
+        category_source=source,
     )
     db.add(expense)
     db.commit()
@@ -322,6 +335,7 @@ def update_expense(
         # describes it -- showing a stale guess next to a human decision
         # would be misleading.
         expense.confidence = None
+        expense.category_source = None
     elif text_changed and expense.confidence is not None:
         # The category didn't change, but the text the classifier scored
         # it against did -- the old confidence described a merchant/
@@ -330,6 +344,7 @@ def update_expense(
         # client decision, same as before), only the stale score is
         # dropped.
         expense.confidence = None
+        expense.category_source = None
 
     db.commit()
     db.refresh(expense)
@@ -550,9 +565,10 @@ def sync_plaid_transactions(
             # that state the next time Plaid reports this transaction as
             # modified (e.g. pending -> posted), so it's skipped.
             if existing.confidence is not None:
-                existing.category, existing.confidence = classify_with_confidence(
-                    merchant, transaction.name
-                )
+                result = categorize(merchant, transaction.name)
+                existing.category = result.category
+                existing.confidence = result.confidence
+                existing.category_source = result.source
 
         for removed in response.removed:
             existing = _find_expense_by_transaction_id(db, removed.transaction_id, user.id)

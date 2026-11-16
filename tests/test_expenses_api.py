@@ -54,6 +54,7 @@ def test_list_expenses_returns_persisted_expenses(user, client, db_session):
             "expense_date": "2026-08-29",
             "category": "Other",
             "confidence": None,
+            "category_source": None,
         },
         {
             "id": second.id,
@@ -63,6 +64,7 @@ def test_list_expenses_returns_persisted_expenses(user, client, db_session):
             "expense_date": "2026-01-05",
             "category": "Other",
             "confidence": None,
+            "category_source": None,
         },
     ]
 

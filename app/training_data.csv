@@ -1,0 +1,460 @@
+merchant,description,category
+Publix,PUBLIX SUPER MARKETS #1123 ATLANTA GA,Groceries
+Wegmans,WEGMANS #045 ROCHESTER NY,Groceries
+H-E-B,H-E-B #612 AUSTIN TX,Groceries
+Food Lion,FOOD LION #2231 RALEIGH NC,Groceries
+Sprouts Farmers Market,SPROUTS FARMERS MKT #331,Groceries
+Giant Eagle,GIANT EAGLE #6402 PITTSBURGH PA,Groceries
+Harris Teeter,HARRIS TEETER #0187,Groceries
+Meijer,MEIJER #154 GRAND RAPIDS MI,Groceries
+Piggly Wiggly,PIGGLY WIGGLY #88,Groceries
+Winn-Dixie,WINN-DIXIE #0451 JACKSONVILLE FL,Groceries
+Stop & Shop,STOP & SHOP 0602 BOSTON MA,Groceries
+Food 4 Less,FOOD 4 LESS #374,Groceries
+Hy-Vee,HY-VEE DES MOINES IA 1442,Groceries
+Lidl,LIDL US #1032,Groceries
+Fresh Market,THE FRESH MARKET #78,Groceries
+Ralphs,RALPHS #0129 LOS ANGELES CA,Groceries
+Albertsons,ALBERTSONS #4410,Groceries
+Local Farmers Market,FARMERS MKT PRODUCE STAND,Groceries
+Chipotle,CHIPOTLE 2291 CHARLOTTE NC,Restaurants & Bars
+Olive Garden,OLIVE GARDEN #1442,Restaurants & Bars
+Chick-fil-A,CHICK-FIL-A #03321,Restaurants & Bars
+Taco Bell,TACO BELL #031245,Restaurants & Bars
+Wendy's,WENDYS #4421 COLUMBUS OH,Restaurants & Bars
+Panera Bread,PANERA BREAD #204188,Restaurants & Bars
+Applebee's,APPLEBEES GRILL #8821,Restaurants & Bars
+Buffalo Wild Wings,BUFFALO WILD WINGS 0331,Restaurants & Bars
+Five Guys,FIVE GUYS BURGERS AND FRIES 1234,Restaurants & Bars
+Sushi House,SUSHI HOUSE JAPANESE CUISINE,Restaurants & Bars
+Texas Roadhouse,TEXAS ROADHOUSE #2241,Restaurants & Bars
+Cheesecake Factory,THE CHEESECAKE FACTORY 0098,Restaurants & Bars
+Panda Express,PANDA EXPRESS #1871,Restaurants & Bars
+Waffle House,WAFFLE HOUSE 1123,Restaurants & Bars
+The Local Tavern,THE LOCAL TAVERN AND GRILL,Restaurants & Bars
+Burger King,BURGER KING #22014,Restaurants & Bars
+Shake Shack,SHAKE SHACK 0412 NEW YORK NY,Restaurants & Bars
+Thai Kitchen,THAI KITCHEN NOODLE HOUSE,Restaurants & Bars
+Dunkin,DUNKIN #3321 ATLANTA GA,Coffee Shops
+Peet's,PEETS 0451 SAN FRANCISCO CA,Coffee Shops
+Dutch Bros,DUTCH BROS 2210 PORTLAND OR,Coffee Shops
+Tim Hortons,TIM HORTONS #8812,Coffee Shops
+Caribou,CARIBOU #0411 MINNEAPOLIS MN,Coffee Shops
+Blue Bottle,BLUE BOTTLE OAKLAND CA,Coffee Shops
+Philz,PHILZ SF MISSION ST,Coffee Shops
+Biggby,BIGGBY #221 LANSING MI,Coffee Shops
+Scooter's,SCOOTERS #145 OMAHA NE,Coffee Shops
+Black Rifle,BLACK RIFLE SALT LAKE UT,Coffee Shops
+Espresso Bar,ESPRESSO BAR AND ROASTERY,Coffee Shops
+The Daily Grind,THE DAILY GRIND,Coffee Shops
+Joe's Roasters,JOES ROASTERS 33,Coffee Shops
+Latte Lounge,LATTE LOUNGE,Coffee Shops
+Coffee Bean,COFFEE BEAN TEA LEAF 0921,Coffee Shops
+Bean There,BEAN THERE ESPRESSO,Coffee Shops
+Postmates,POSTMATES ORDER 8821,Food Delivery
+Seamless,SEAMLESS ORDER NYC,Food Delivery
+Caviar,CAVIAR ORDER 2210,Food Delivery
+Gopuff,GOPUFF DELIVERY 4412,Food Delivery
+Shipt,SHIPT ORDER BIRMINGHAM AL,Food Delivery
+Waitr,WAITR DELIVERY 0331,Food Delivery
+Slice,SLICE ORDER PIZZA DELIVERY,Food Delivery
+ChowNow,CHOWNOW ORDER 7721,Food Delivery
+Favor,FAVOR DELIVERY AUSTIN,Food Delivery
+EzCater,EZCATER ORDER 1182,Food Delivery
+Delivery.com,DELIVERY.COM ORDER,Food Delivery
+Drizly,DRIZLY ORDER 5521,Food Delivery
+Snackpass,SNACKPASS ORDER,Food Delivery
+DD Dash Pass,DD DASHPASS MEMBERSHIP,Food Delivery
+Takeout Delivery,TAKEOUT ORDER DELIVERY FEE,Food Delivery
+Meal Delivery,MEAL DELIVERY SERVICE ORDER,Food Delivery
+BP,BP#9981234 MOBIL STATION,Gas & Fuel
+Sunoco,SUNOCO 0812 4412,Gas & Fuel
+Marathon,MARATHON PETRO 221,Gas & Fuel
+Speedway,SPEEDWAY 04412 DAYTON OH,Gas & Fuel
+QuikTrip,QT 812 TULSA OK,Gas & Fuel
+Wawa,WAWA 8821 PHILADELPHIA PA,Gas & Fuel
+Circle K,CIRCLE K 2210331,Gas & Fuel
+Valero,VALERO 4421,Gas & Fuel
+Sheetz,SHEETZ 0331 ALTOONA PA,Gas & Fuel
+Citgo,CITGO 12345 STATION,Gas & Fuel
+RaceTrac,RACETRAC 441 ATLANTA,Gas & Fuel
+Casey's,CASEYS GEN STORE 2210 PETRO,Gas & Fuel
+Phillips 66,PHILLIPS 66 4412881,Gas & Fuel
+Mobil,EXXONMOBIL 9921,Gas & Fuel
+Murphy USA,MURPHY USA 7721,Gas & Fuel
+Arco,ARCO 82114 AMPM,Gas & Fuel
+Love's,LOVES TRAVEL STOP 0412 DIESEL,Gas & Fuel
+Pilot,PILOT 00412 TRUCK STOP FUEL,Gas & Fuel
+Via,VIA RIDE NYC,Rideshare & Transit
+Curb,CURB MOBILITY TAXI 2210,Rideshare & Transit
+MTA,MTA NYCT PAYGO,Rideshare & Transit
+BART,BART CLIPPER SF,Rideshare & Transit
+MARTA,MARTA BREEZE ATLANTA,Rideshare & Transit
+Lime,LIME SCOOTER RIDE,Rideshare & Transit
+Bird,BIRD SCOOTER RIDE,Rideshare & Transit
+Citi Bike,CITI BIKE NYC,Rideshare & Transit
+Greyhound,GREYHOUND BUS LINES,Rideshare & Transit
+SEPTA,SEPTA KEY PHILADELPHIA,Rideshare & Transit
+EZPass,E-ZPASS TOLL REPLENISH,Rideshare & Transit
+SunPass,SUNPASS TOLL FL,Rideshare & Transit
+SpotHero,SPOTHERO RESERVATION,Rideshare & Transit
+ParkMobile,PARKMOBILE 0412,Rideshare & Transit
+Revel,REVEL RIDE NYC,Rideshare & Transit
+Commuter Rail,COMMUTER RAIL MONTHLY PASS,Rideshare & Transit
+Southwest,SOUTHWEST AIR 5262311,Travel
+American Airlines,AMERICAN AIR 0012345,Travel
+JetBlue,JETBLUE 2791234,Travel
+Spirit,SPIRIT AIRL 4871,Travel
+Alaska Air,ALASKA AIR 0271,Travel
+Marriott,MARRIOTT DOWNTOWN CHICAGO,Travel
+Hilton,HILTON GARDEN INN 0331,Travel
+Holiday Inn,HOLIDAY INN EXPRESS 2210,Travel
+Hampton Inn,HAMPTON INN AND SUITES,Travel
+Expedia,EXPEDIA 7221881,Travel
+Booking.com,BOOKING.COM RESERVATION,Travel
+Hertz,HERTZ RENT-A-CAR 0412,Travel
+Enterprise,ENTERPRISE RENT A CAR,Travel
+Avis,AVIS RENTAL 2210,Travel
+Vrbo,VRBO VACATION RENTAL,Travel
+Kayak,KAYAK FLIGHT BOOKING,Travel
+TSA PreCheck,TSA PRECHECK ENROLLMENT,Travel
+Frontier,FRONTIER AIRLINES 0331,Travel
+Zillow Rent,ZILLOW RENTAL PAYMENT,Rent & Mortgage
+Apartments.com,APARTMENTS.COM PAYMENT,Rent & Mortgage
+Cozy,COZY RENT PAYMENT,Rent & Mortgage
+AppFolio,APPFOLIO PROPERTY PMT,Rent & Mortgage
+RentCafe,RENTCAFE RESIDENT PAYMENT,Rent & Mortgage
+Greystar,GREYSTAR RESIDENT PORTAL,Rent & Mortgage
+Wells Fargo Home,WELLS FARGO HOME MTG PMT,Rent & Mortgage
+Rocket,ROCKET HOME LOAN PMT,Rent & Mortgage
+Mr. Cooper,MR COOPER HOME LOAN,Rent & Mortgage
+Chase Home,CHASE HOME LENDING PMT,Rent & Mortgage
+Property Management,OAKWOOD PROPERTY MGMT,Rent & Mortgage
+Apartment Homes,PARKSIDE APARTMENT HOMES,Rent & Mortgage
+HOA,MAPLE RIDGE HOA DUES,Rent & Mortgage
+Lease Payment,MONTHLY LEASE PAYMENT,Rent & Mortgage
+Residential Leasing,SUNSET RESIDENTIAL LEASING,Rent & Mortgage
+Housing Payment,STUDENT HOUSING PAYMENT,Rent & Mortgage
+Duke Energy,DUKE ENERGY PAYMENT,Utilities
+Georgia Power,GEORGIA POWER BILL PAY,Utilities
+PG&E,PGANDE WEB ONLINE,Utilities
+Con Edison,CON ED OF NY,Utilities
+Xfinity,XFINITY MOBILE,Utilities
+Spectrum,SPECTRUM CABLE 0412,Utilities
+AT&T,ATT BILL PAYMENT,Utilities
+Verizon,VERIZON WIRELESS PAYMENT,Utilities
+T-Mobile,T-MOBILE AUTOPAY,Utilities
+Dominion Energy,DOMINION ENERGY VA,Utilities
+City Water,CITY OF AUSTIN WATER DEPT,Utilities
+Waste Management,WASTE MANAGEMENT TRASH SVC,Utilities
+Atmos,ATMOS ENERGY GAS SVC,Utilities
+Cox,COX COMM SVCS,Utilities
+Google Fi,GOOGLE FI WIRELESS,Utilities
+Sewer Service,COUNTY SEWER SERVICE,Utilities
+Wayfair,WAYFAIR 2201881,Online Shopping
+Shein,SHEIN.COM ORDER,Online Shopping
+Temu,TEMU.COM ORDER,Online Shopping
+AliExpress,ALIEXPRESS ORDER,Online Shopping
+Chewy,CHEWY.COM ORDER,Online Shopping
+Overstock,OVERSTOCK.COM,Online Shopping
+Wish,WISH.COM ORDER,Online Shopping
+Zappos,ZAPPOS.COM,Online Shopping
+Shopify Store,SHOPIFY PAYMENT ORDER,Online Shopping
+Mercari,MERCARI ORDER,Online Shopping
+Poshmark,POSHMARK ORDER,Online Shopping
+Rakuten,RAKUTEN ORDER,Online Shopping
+QVC,QVC ORDER,Online Shopping
+Newegg Marketplace,NEWEGG MARKETPLACE ORDER,Online Shopping
+Online Order,ONLINE ORDER WWW,Online Shopping
+PayPal Merchant,PAYPAL INST XFER ONLINE PURCHASE,Online Shopping
+Dollar General,DOLLAR GENERAL #16600,General Merchandise
+Dollar Tree,DOLLAR TREE #4412,General Merchandise
+Family Dollar,FAMILY DOLLAR #2210,General Merchandise
+Kohl's,KOHLS #0412,General Merchandise
+Big Lots,BIG LOTS #1123,General Merchandise
+Five Below,FIVE BELOW #331,General Merchandise
+TJ Maxx,TJ MAXX #0981,General Merchandise
+Marshalls,MARSHALLS #441,General Merchandise
+Home Depot,THE HOME DEPOT #6621,General Merchandise
+Lowe's,LOWES #01882,General Merchandise
+Bed Bath,BED BATH BEYOND,General Merchandise
+IKEA,IKEA ATLANTA,General Merchandise
+Sam's Club,SAMS CLUB #8821,General Merchandise
+BJ's,BJS WHOLESALE #0412,General Merchandise
+Ollie's,OLLIES BARGAIN OUTLET,General Merchandise
+Michaels,MICHAELS STORES 4412,General Merchandise
+Hobby Lobby,HOBBY LOBBY #221,General Merchandise
+Newegg,NEWEGG.COM ELECTRONICS,Electronics
+Micro Center,MICRO CENTER #041,Electronics
+B&H Photo,B&H PHOTO VIDEO,Electronics
+GameStop Tech,GAMESTOP PRE-OWNED PHONE,Electronics
+Samsung,SAMSUNG.COM US,Electronics
+Dell,DELL TECHNOLOGIES ORDER,Electronics
+Lenovo,LENOVO US ORDER,Electronics
+Apple.com,APPLE.COM/BILL HARDWARE,Electronics
+Crutchfield,CRUTCHFIELD CORP,Electronics
+Adorama,ADORAMA CAMERA,Electronics
+Bose,BOSE CORP ORDER,Electronics
+Logitech,LOGITECH ORDER,Electronics
+Verizon Device,VERIZON STORE PHONE PURCHASE,Electronics
+Phone Repair,UBREAKIFIX PHONE REPAIR,Electronics
+Computer Store,COMPUTER STORE LAPTOP,Electronics
+Gadget Shop,GADGET SHOP HEADPHONES,Electronics
+Old Navy,OLD NAVY #4412,Clothing
+Gap,GAP US 0331,Clothing
+H&M,H&M 0412 ATLANTA,Clothing
+Zara,ZARA USA 2210,Clothing
+Uniqlo,UNIQLO 0981,Clothing
+Foot Locker,FOOT LOCKER #2210,Clothing
+Adidas,ADIDAS US ORDER,Clothing
+Lululemon,LULULEMON ATHLETICA,Clothing
+American Eagle,AMERICAN EAGLE OUTFITTERS,Clothing
+Forever 21,FOREVER 21 #0412,Clothing
+Ross,ROSS DRESS FOR LESS #221,Clothing
+Burlington,BURLINGTON COAT FACTORY,Clothing
+Macy's,MACYS #0331,Clothing
+Nordstrom,NORDSTROM RACK 412,Clothing
+Express,EXPRESS #0221 MENS,Clothing
+Shoe Carnival,SHOE CARNIVAL #331,Clothing
+Champs,CHAMPS SPORTS #882,Clothing
+Apple Music,APPLE.COM/BILL MUSIC SUBSCRIPTION,Streaming & Subscriptions
+YouTube Premium,GOOGLE YOUTUBE PREMIUM,Streaming & Subscriptions
+HBO Max,MAX.COM SUBSCRIPTION,Streaming & Subscriptions
+Paramount+,PARAMOUNT PLUS,Streaming & Subscriptions
+Peacock,PEACOCK TV SUBSCRIPTION,Streaming & Subscriptions
+Amazon Prime Video,PRIME VIDEO CHANNELS,Streaming & Subscriptions
+Audible,AUDIBLE MEMBERSHIP,Streaming & Subscriptions
+SiriusXM,SIRIUSXM RADIO,Streaming & Subscriptions
+Crunchyroll,CRUNCHYROLL SUBSCRIPTION,Streaming & Subscriptions
+iCloud,APPLE.COM/BILL ICLOUD STORAGE,Streaming & Subscriptions
+Dropbox,DROPBOX PLUS,Streaming & Subscriptions
+Microsoft 365,MICROSOFT 365 SUBSCRIPTION,Streaming & Subscriptions
+Adobe,ADOBE CREATIVE CLOUD,Streaming & Subscriptions
+Patreon,PATREON MEMBERSHIP,Streaming & Subscriptions
+Pandora,PANDORA PLUS,Streaming & Subscriptions
+ChatGPT Plus,OPENAI CHATGPT SUBSCR,Streaming & Subscriptions
+AMC,AMC 4412 ONLINE,Movies & Events
+Regal,REGAL CINEMAS 0331,Movies & Events
+Cinemark,CINEMARK 221,Movies & Events
+Fandango,FANDANGO TICKETS,Movies & Events
+StubHub,STUBHUB TICKETS,Movies & Events
+SeatGeek,SEATGEEK TICKETS,Movies & Events
+Eventbrite,EVENTBRITE ORDER,Movies & Events
+Live Nation,LIVE NATION ENTERTAINMENT,Movies & Events
+Dave & Buster's,DAVE AND BUSTERS 0412,Movies & Events
+Topgolf,TOPGOLF 2210,Movies & Events
+Six Flags,SIX FLAGS OVER GEORGIA,Movies & Events
+Bowling Alley,BOWLERO BOWLING LANES,Movies & Events
+Museum,HIGH MUSEUM OF ART ADMISSION,Movies & Events
+Zoo,ZOO ATLANTA ADMISSION,Movies & Events
+Comedy Club,LAUGHING SKULL COMEDY CLUB,Movies & Events
+Escape Room,ESCAPE ROOM ADVENTURES,Movies & Events
+Epic Games,EPIC GAMES STORE,Gaming
+Riot Games,RIOT GAMES VALORANT POINTS,Gaming
+Blizzard,BLIZZARD ENTERTAINMENT,Gaming
+Roblox,ROBLOX CORPORATION ROBUX,Gaming
+EA,ELECTRONIC ARTS ORIGIN,Gaming
+GameStop,GAMESTOP #4412,Gaming
+Twitch,TWITCH INTERACTIVE SUBS,Gaming
+Ubisoft,UBISOFT STORE,Gaming
+Humble Bundle,HUMBLE BUNDLE,Gaming
+Valve,VALVE CORP GAME PURCHASE,Gaming
+Minecraft,MINECRAFT MARKETPLACE,Gaming
+Fortnite,FORTNITE VBUCKS,Gaming
+Game Pass,GAME PASS ULTIMATE,Gaming
+PSN,PSN SONY NETWORK,Gaming
+Game Store,RETRO GAME STORE,Gaming
+Arcade,ARCADE GAME TOKENS,Gaming
+Rite Aid,RITE AID #04412,Pharmacy
+Duane Reade,DUANE READE #221,Pharmacy
+GoodRx,GOODRX PRESCRIPTION,Pharmacy
+Capsule,CAPSULE RX DELIVERY,Pharmacy
+Express Scripts,EXPRESS SCRIPTS RX,Pharmacy
+OptumRx,OPTUMRX MAIL ORDER,Pharmacy
+PillPack,PILLPACK RX,Pharmacy
+Costplus Drugs,COSTPLUS DRUGS RX,Pharmacy
+Drugstore,NEIGHBORHOOD DRUGSTORE RX,Pharmacy
+Apothecary,MAIN ST APOTHECARY,Pharmacy
+Hims,HIMS AND HERS RX,Pharmacy
+Prescription,PRESCRIPTION COPAY RX 2210,Pharmacy
+Kinney Drugs,KINNEY DRUGS #33,Pharmacy
+Harris Drug,HARRIS DRUG RX,Pharmacy
+Medicine Shoppe,MEDICINE SHOPPE #221,Pharmacy
+Planet Fitness,PLANET FITNESS CLUB FEE,Gym & Fitness
+LA Fitness,LA FITNESS MONTHLY,Gym & Fitness
+Anytime Fitness,ANYTIME FITNESS #221,Gym & Fitness
+Orangetheory,ORANGETHEORY STUDIO 0412,Gym & Fitness
+Crunch,CRUNCH MEMBERSHIP,Gym & Fitness
+Equinox,EQUINOX MEMBERSHIP NYC,Gym & Fitness
+Peloton,PELOTON MEMBERSHIP,Gym & Fitness
+CorePower Yoga,COREPOWER YOGA,Gym & Fitness
+SoulCycle,SOULCYCLE CLASS,Gym & Fitness
+YMCA,YMCA MEMBERSHIP DUES,Gym & Fitness
+F45,F45 TRAINING,Gym & Fitness
+24 Hour,24 HOUR FITNESS USA,Gym & Fitness
+ClassPass,CLASSPASS CREDITS,Gym & Fitness
+CrossFit,CROSSFIT BOX MEMBERSHIP,Gym & Fitness
+Climbing Gym,BOULDER CLIMBING GYM DAY PASS,Gym & Fitness
+Yoga Studio,YOGA STUDIO CLASS PACK,Gym & Fitness
+Kaiser,KAISER PERMANENTE COPAY,Medical
+Quest,QUEST DIAGNOSTICS LAB,Medical
+LabCorp,LABCORP BILLING,Medical
+MinuteClinic,MINUTECLINIC VISIT,Medical
+Urgent Care,CITY URGENT CARE COPAY,Medical
+Pediatrics,PEACHTREE PEDIATRICS,Medical
+Dentist,BRIGHT SMILES DENTISTRY,Medical
+Orthodontics,SMILE ORTHODONTICS,Medical
+Optometrist,VISIONWORKS EYE EXAM,Medical
+Physical Therapy,ATHLETICO PHYSICAL THERAPY,Medical
+Dermatology,SKIN DERMATOLOGY ASSOC,Medical
+Teladoc,TELADOC HEALTH VISIT,Medical
+Emory Healthcare,EMORY HEALTHCARE BILLING,Medical
+Chiropractor,FAMILY CHIROPRACTIC,Medical
+Therapist,BETTERHELP THERAPY,Medical
+Radiology,CENTRAL RADIOLOGY IMAGING,Medical
+USPS,USPS PO 1234567 POSTAGE,Other
+UPS Store,THE UPS STORE #4412,Other
+FedEx Office,FEDEX OFFICE PRINT,Other
+DMV,DEPT OF MOTOR VEHICLES FEE,Other
+IRS,IRS USATAXPYMT,Other
+Venmo,VENMO PAYMENT,Other
+Zelle,ZELLE PAYMENT TO FRIEND,Other
+ATM,ATM WITHDRAWAL 0412,Other
+Bank Fee,MONTHLY SERVICE FEE,Other
+Great Clips,GREAT CLIPS HAIRCUT,Other
+Barber,FRESH CUTS BARBERSHOP,Other
+Laundromat,SPIN CYCLE LAUNDROMAT,Other
+Dry Cleaner,PREMIER DRY CLEANERS,Other
+Pet Vet,BANFIELD PET HOSPITAL,Other
+Charity,AMERICAN RED CROSS DONATION,Other
+Church,FIRST BAPTIST CHURCH GIVING,Other
+Insurance,STATE FARM INSURANCE,Other
+Car Wash,MISTER CAR WASH,Other
+Tuition,UNIVERSITY TUITION PAYMENT,Other
+Storage,PUBLIC STORAGE UNIT,Other
+Mario's Pizzeria,MARIOS PIZZERIA AND PASTA,Restaurants & Bars
+Smokehouse BBQ,BIG JIMS SMOKEHOUSE BBQ,Restaurants & Bars
+Taqueria El Sol,TAQUERIA EL SOL TACOS,Restaurants & Bars
+Pho Saigon,PHO SAIGON NOODLE BAR,Restaurants & Bars
+Golden Wok,GOLDEN WOK CHINESE BISTRO,Restaurants & Bars
+Riverside Grill,RIVERSIDE GRILL AND TAPHOUSE,Restaurants & Bars
+Burger Joint,THE BURGER JOINT DINER,Restaurants & Bars
+Ramen Ya,RAMEN YA JAPANESE KITCHEN,Restaurants & Bars
+Brewpub,STONE MILL BREWPUB,Restaurants & Bars
+Steakhouse,PRIME CUT STEAKHOUSE,Restaurants & Bars
+Corner Market,CORNER MARKET FRESH FOODS,Groceries
+Asian Market,H MART ASIAN FOOD MARKET,Groceries
+Halal Market,HALAL MEAT AND FOOD MARKET,Groceries
+Organic Foods,GREEN LEAF ORGANIC FOODS,Groceries
+Food City,FOOD CITY #221,Groceries
+Butcher Shop,MAIN ST BUTCHER SHOP MEATS,Groceries
+Produce Market,VALLEY PRODUCE MARKET,Groceries
+Save A Lot,SAVE A LOT FOOD STORES,Groceries
+Bean Roasters,MOUNTAIN BEAN ROASTERS,Coffee Shops
+Cuppa,CUPPA ESPRESSO AND TEA,Coffee Shops
+Brew Lab,BREW LAB COLD BREW,Coffee Shops
+Morning Cup,MORNING CUP CAFE LATTE,Coffee Shops
+Tea House,LEAF AND KETTLE TEA HOUSE,Coffee Shops
+Roastery,DOWNTOWN ROASTERY,Coffee Shops
+Grubhub Plus,GRUBHUB PLUS MEMBERSHIP DELIVERY,Food Delivery
+Restaurant Delivery,RESTAURANT DELIVERY ORDER FEE,Food Delivery
+Grocery Delivery,GROCERY DELIVERY SERVICE ORDER,Food Delivery
+Courier Order,COURIER FOOD ORDER DELIVERED,Food Delivery
+Order Delivery,ORDER DELIVERY TIP,Food Delivery
+Delivery Fee,DELIVERY SERVICE FEE,Food Delivery
+Kwik Trip,KWIK TRIP 0412 PETRO,Gas & Fuel
+Fuel Stop,HIGHWAY FUEL STOP DIESEL,Gas & Fuel
+Petro Mart,PETRO MART UNLEADED,Gas & Fuel
+Gas N Go,GAS N GO 221,Gas & Fuel
+Travel Center,TA TRAVEL CENTER DIESEL,Gas & Fuel
+EV Charging,CHARGEPOINT EV CHARGING,Gas & Fuel
+Toll Road,NTTA TOLLTAG REPLENISH,Rideshare & Transit
+Transit Authority,REGIONAL TRANSIT AUTHORITY FARE,Rideshare & Transit
+Bus Fare,CITY BUS FARE CARD,Rideshare & Transit
+Light Rail,LIGHT RAIL TICKET MACHINE,Rideshare & Transit
+Cab Company,YELLOW CAB COMPANY,Rideshare & Transit
+Garage,DOWNTOWN PARKING GARAGE,Rideshare & Transit
+Airways,BRITISH AIRWAYS 1252,Travel
+Suites,EMBASSY SUITES HOTEL,Travel
+Motel,ROADSIDE MOTEL LODGING,Travel
+Resort,BEACHFRONT RESORT AND SPA,Travel
+Lodge,MOUNTAIN LODGE STAY,Travel
+Cruise,CARNIVAL CRUISE LINE,Travel
+Apts,WILLOW CREEK APTS RENT PMT,Rent & Mortgage
+Leasing Office,PINE VIEW LEASING OFFICE,Rent & Mortgage
+Mortgage Servicing,LOANCARE MTG SERVICING,Rent & Mortgage
+Home Loan,HOME LOAN SERVICING PMT,Rent & Mortgage
+Residences,THE RESIDENCES AT OAK PARK,Rent & Mortgage
+Property Mgmt,SUMMIT PROPERTY MGMT RENT,Rent & Mortgage
+Power Co,SOUTHERN POWER CO BILL,Utilities
+Energy Bill,CITY ENERGY ONLINE PMT,Utilities
+Wireless Bill,US CELLULAR WIRELESS BILL,Utilities
+Broadband,FIBER BROADBAND SERVICE,Utilities
+Telecom,WINDSTREAM TELECOM,Utilities
+Natural Gas,PIEDMONT NATURAL GAS,Utilities
+Marketplace,MARKETPLACE ORDER ONLINE,Online Shopping
+Web Order,WWW ORDER CHECKOUT,Online Shopping
+Online Retailer,ONLINE RETAILER ORDER SHIPPED,Online Shopping
+E-Commerce,ECOMMERCE PURCHASE WEB,Online Shopping
+Dot Com Order,STORE.COM ORDER CONFIRMATION,Online Shopping
+Shop Pay,SHOP PAY CHECKOUT,Online Shopping
+Variety Store,VARIETY DISCOUNT OUTLET,General Merchandise
+Discount Outlet,BARGAIN DISCOUNT OUTLET,General Merchandise
+Hardware Store,ACE HARDWARE #4412,General Merchandise
+Home Goods,HOMEGOODS #221,General Merchandise
+Department Store,JCPENNEY DEPT #0412,General Merchandise
+Craft Supply,JOANN FABRIC AND CRAFT,General Merchandise
+Office Supply,STAPLES OFFICE SUPPLY,General Merchandise
+Tech Store,TECH STORE LAPTOP PURCHASE,Electronics
+Camera Shop,CAMERA SHOP LENSES,Electronics
+Audio Shop,AUDIO SHOP SPEAKERS,Electronics
+Phone Store,CELL PHONE STORE ACCESSORIES,Electronics
+PC Parts,PC PARTS GRAPHICS CARD,Electronics
+Gadgets,SMART HOME GADGETS ORDER,Electronics
+Apparel,URBAN APPAREL CO,Clothing
+Boutique,CHIC BOUTIQUE WOMENS,Clothing
+Outfitters,TRAIL OUTFITTERS JACKETS,Clothing
+Shoe Store,SNEAKER SHOE STORE,Clothing
+Menswear,CLASSIC MENSWEAR TAILOR,Clothing
+Sportswear,ATHLETIC SPORTSWEAR SHOP,Clothing
+Subscription,MONTHLY SUBSCRIPTION RENEWAL,Streaming & Subscriptions
+Streaming,STREAMING SERVICE PLAN,Streaming & Subscriptions
+Membership,DIGITAL MEMBERSHIP AUTO RENEW,Streaming & Subscriptions
+Music Plan,MUSIC STREAMING FAMILY PLAN,Streaming & Subscriptions
+Cloud Storage,CLOUD STORAGE PLAN,Streaming & Subscriptions
+News Subscription,NYTIMES DIGITAL SUBSCRIPTION,Streaming & Subscriptions
+Tickets,CONCERT HALL TICKETS,Movies & Events
+Box Office,BOX OFFICE ADMISSION,Movies & Events
+Theme Park,THEME PARK ADMISSION,Movies & Events
+Stadium,STADIUM EVENT TICKETS,Movies & Events
+Mini Golf,MINI GOLF AND GO KARTS,Movies & Events
+Aquarium,GEORGIA AQUARIUM ADMISSION,Movies & Events
+Game Credits,GAME CREDITS IN-GAME PURCHASE,Gaming
+Video Games,VIDEO GAMES DIGITAL DOWNLOAD,Gaming
+Gaming Store,GAMING STORE CONSOLE,Gaming
+Esports,ESPORTS ARENA PASS,Gaming
+Game Subscription,ONLINE GAME SUBSCRIPTION,Gaming
+DLC,GAME DLC EXPANSION PACK,Gaming
+Drug Store,FAMILY DRUG STORE RX,Pharmacy
+Rx Refill,RX REFILL PICKUP,Pharmacy
+Pharm,COMMUNITY PHARM RX,Pharmacy
+Compounding,COMPOUNDING PHARMACY SERVICES,Pharmacy
+Prescriptions,MAIL ORDER PRESCRIPTIONS,Pharmacy
+Pilates,CORE PILATES STUDIO,Gym & Fitness
+Boxing,TITLE BOXING CLUB,Gym & Fitness
+Martial Arts,MARTIAL ARTS DOJO TUITION,Gym & Fitness
+Spin Studio,CYCLE SPIN STUDIO CLASS,Gym & Fitness
+Personal Trainer,PERSONAL TRAINER SESSION,Gym & Fitness
+Health Club,LIFETIME HEALTH CLUB DUES,Gym & Fitness
+DDS,JOHN SMITH DDS,Medical
+MD Office,FAMILY PRACTICE MD OFFICE,Medical
+Pediatric,PEDIATRIC ASSOCIATES COPAY,Medical
+Vision Center,VISION CENTER EYE EXAM,Medical
+Lab Services,MEDICAL LAB SERVICES,Medical
+Health System,REGIONAL HEALTH SYSTEM BILL,Medical
+Postage,POSTAGE STAMPS,Other
+Wire Transfer,WIRE TRANSFER FEE,Other
+Salon,BELLA HAIR SALON,Other
+Nail Salon,LUXE NAIL SALON,Other
+Donation,FOOD BANK DONATION,Other
+Tax Payment,STATE TAX PAYMENT,Other

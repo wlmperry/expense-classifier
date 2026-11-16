@@ -25,7 +25,7 @@ The active milestone is the **MVP**: baseline rule-based expense categorization,
 
 ## Stack
 
-React + TypeScript + Vite -> FastAPI -> SQLAlchemy + Alembic -> PostgreSQL. Python tooling is pytest and Ruff; scikit-learn is the intended ML library once the expense pipeline works. `docs/architecture.md` is authoritative -- read it before making architectural claims.
+React + TypeScript + Vite -> FastAPI -> SQLAlchemy + Alembic -> PostgreSQL. Python tooling is pytest and Ruff; scikit-learn powers the hybrid ML category classifier (Issue #55). `docs/architecture.md` is authoritative -- read it before making architectural claims.
 
 ## Where to look
 

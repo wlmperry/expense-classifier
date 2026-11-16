@@ -141,6 +141,18 @@ function App({ user, onLogout }: AppProps) {
                         <td className="col-date">{expense.expense_date}</td>
                         <td>
                           <span className="category-tag">{expense.category}</span>
+                          {expense.category_source && (
+                            <span
+                              className={`source-tag source-tag--${expense.category_source}`}
+                              title={
+                                expense.category_source === "model"
+                                  ? "Categorized by the machine-learning model"
+                                  : "Categorized by the keyword rules"
+                              }
+                            >
+                              {expense.category_source === "model" ? "ML" : "Rules"}
+                            </span>
+                          )}
                         </td>
                         <td>
                           {expense.confidence == null

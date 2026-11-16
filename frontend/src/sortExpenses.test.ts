@@ -3,7 +3,7 @@ import { sortExpenses } from './sortExpenses'
 import type { Expense } from './types'
 
 function expense(id: number, expense_date: string, amount: string): Expense {
-  return { id, merchant: `M${id}`, description: '', amount, expense_date, category: 'Other', confidence: null }
+  return { id, merchant: `M${id}`, description: '', amount, expense_date, category: 'Other', confidence: null, category_source: null }
 }
 
 // 9.00 vs 42.00 catches amounts being compared as text, where "9.00" > "42.00".
