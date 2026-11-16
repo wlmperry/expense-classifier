@@ -30,9 +30,12 @@ class SetPasswordError(Exception):
     """A problem the person running the script needs to fix."""
 
 
-def set_password(db: Session, email: str, password: str) -> None:
+def set_password(db: Session, email: str, password: str) -> str:
     """Replace the password of the account with this email and end its
-    sessions. Uses the same email and password rules as sign-up."""
+    sessions. Uses the same email and password rules as sign-up.
+
+    Returns the email as stored (trimmed and lowercased).
+    """
     try:
         valid = RegisterRequest(email=email, password=password)
     except ValidationError as exc:
@@ -46,6 +49,7 @@ def set_password(db: Session, email: str, password: str) -> None:
     user.password_hash = hash_password(valid.password)
     db.execute(delete(UserSession).where(UserSession.user_id == user.id))
     db.commit()
+    return valid.email
 
 
 def main() -> int:
@@ -57,12 +61,12 @@ def main() -> int:
 
     try:
         with SessionLocal() as db:
-            set_password(db, email, password)
+            stored_email = set_password(db, email, password)
     except SetPasswordError as exc:
         print(f"{exc}. Nothing was changed.", file=sys.stderr)
         return 1
 
-    print(f"Password updated for {email.strip().lower()}.")
+    print(f"Password updated for {stored_email}.")
     return 0
 
 

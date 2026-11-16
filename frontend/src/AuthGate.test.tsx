@@ -127,6 +127,57 @@ describe('AuthGate', () => {
     expect(getSessionToken()).toBeNull()
   })
 
+  it('keeps the saved token and offers a retry when the session check gets a 503', async () => {
+    saveSessionToken('token-saved')
+    stubBackend({ 'GET /auth/me': { status: 503, body: null } })
+
+    render(<AuthGate />)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn't reach the server/i)
+    expect(screen.queryByRole('heading', { name: /log in/i })).not.toBeInTheDocument()
+    expect(getSessionToken()).toBe('token-saved')
+  })
+
+  it('keeps the saved token when the session check cannot connect at all', async () => {
+    saveSessionToken('token-saved')
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))))
+
+    render(<AuthGate />)
+
+    expect(await screen.findByRole('button', { name: /try again/i })).toBeInTheDocument()
+    expect(getSessionToken()).toBe('token-saved')
+  })
+
+  it('shows the app when Try again succeeds after the server wakes up', async () => {
+    saveSessionToken('token-saved')
+    let meCalls = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        const path = new URL(url).pathname
+        if (path === '/auth/me') {
+          meCalls += 1
+          return Promise.resolve(
+            meCalls === 1
+              ? { ok: false, status: 503, json: () => Promise.resolve(null) }
+              : { ok: true, status: 200, json: () => Promise.resolve(USER) },
+          )
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(path === '/expenses' ? [] : { item_id: null }),
+        })
+      }),
+    )
+
+    render(<AuthGate />)
+    fireEvent.click(await screen.findByRole('button', { name: /try again/i }))
+
+    expect(await screen.findByRole('heading', { name: /expense classifier/i })).toBeInTheDocument()
+    expect(meCalls).toBe(2)
+  })
+
   it('logs out: ends the session on the backend and returns to the login screen', async () => {
     saveSessionToken('token-saved')
     const fetchMock = stubBackend({

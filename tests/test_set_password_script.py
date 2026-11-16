@@ -20,8 +20,9 @@ def test_the_new_password_works_and_the_old_one_does_not(db_session, user):
 
 
 def test_email_is_matched_regardless_of_capitalization(db_session, user):
-    set_password(db_session, f"  {user.email.upper()} ", NEW_PASSWORD)
+    stored_email = set_password(db_session, f"  {user.email.upper()} ", NEW_PASSWORD)
 
+    assert stored_email == user.email
     assert authenticate(db_session, user.email, NEW_PASSWORD) == user
 
 

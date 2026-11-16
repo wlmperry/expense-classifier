@@ -164,6 +164,29 @@ def test_exchange_refuses_a_bank_already_linked_to_another_user(
     assert item.user_id == other_user.id
 
 
+def test_sync_never_deletes_another_users_expense(
+    client, db_session, user, other_user, mock_plaid_client
+):
+    """Even if Plaid reported a transaction id as removed that, somehow,
+    belongs to another user's expense, this user's sync must leave it alone."""
+    _add_plaid_item(db_session, user, "item-mine")
+    theirs = _add_expense(db_session, other_user, "Theirs")
+    theirs.plaid_transaction_id = "txn-shared"
+    db_session.flush()
+    mock_plaid_client.transactions_sync.return_value = SimpleNamespace(
+        added=[],
+        modified=[],
+        removed=[SimpleNamespace(transaction_id="txn-shared")],
+        next_cursor="c1",
+        has_more=False,
+    )
+
+    response = client.post("/plaid/sync/item-mine")
+
+    assert response.status_code == 201
+    assert db_session.get(Expense, theirs.id) is not None
+
+
 def test_synced_expenses_belong_to_the_current_user(
     client, db_session, user, mock_plaid_client
 ):

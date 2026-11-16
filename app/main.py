@@ -516,7 +516,7 @@ def sync_plaid_transactions(
         )
 
         for transaction in response.added:
-            if _find_expense_by_transaction_id(db, transaction.transaction_id) is not None:
+            if _find_expense_by_transaction_id(db, transaction.transaction_id, user.id) is not None:
                 continue  # already imported by an earlier call in this same loop/sync
             expense = _expense_from_transaction(transaction, user.id)
             if expense is None:
@@ -525,7 +525,7 @@ def sync_plaid_transactions(
             new_expenses.append(expense)
 
         for transaction in response.modified:
-            existing = _find_expense_by_transaction_id(db, transaction.transaction_id)
+            existing = _find_expense_by_transaction_id(db, transaction.transaction_id, user.id)
             if existing is None:
                 expense = _expense_from_transaction(transaction, user.id)
                 if expense is None:
@@ -555,7 +555,7 @@ def sync_plaid_transactions(
                 )
 
         for removed in response.removed:
-            existing = _find_expense_by_transaction_id(db, removed.transaction_id)
+            existing = _find_expense_by_transaction_id(db, removed.transaction_id, user.id)
             if existing is not None:
                 db.delete(existing)
                 if existing in new_expenses:
@@ -575,8 +575,19 @@ def sync_plaid_transactions(
     return PlaidSyncResponse(added_count=len(results), added=results)
 
 
-def _find_expense_by_transaction_id(db: Session, transaction_id: str) -> Expense | None:
+def _find_expense_by_transaction_id(
+    db: Session, transaction_id: str, user_id: int
+) -> Expense | None:
+    """The user's Expense imported from this Plaid transaction, if any.
+
+    Filtering by user_id isn't strictly needed today, since the transactions
+    come from the user's own Item and Plaid transaction ids are unique. It
+    guarantees a sync can never update or delete another user's row if that
+    ever stops being true.
+    """
     return db.execute(
-        select(Expense).where(Expense.plaid_transaction_id == transaction_id)
+        select(Expense).where(
+            Expense.plaid_transaction_id == transaction_id, Expense.user_id == user_id
+        )
     ).scalar_one_or_none()
 
