@@ -126,7 +126,7 @@ npm run lint
 
 ## Cross-origin requests in local development
 
-The browser and the API run on different origins in local development -- the Vite dev server on `http://localhost:5173`, the backend on `http://127.0.0.1:8000` -- so the backend must explicitly allow the frontend's origin. A plain `GET` with no custom headers would be a CORS "simple request": the browser sends it directly and only blocks the frontend JavaScript from reading the response if the CORS header is missing. But every request this frontend sends carries an `Authorization: Bearer ...` header (`app/auth.py`'s stopgap auth, Issue #41), and `Authorization` is not one of the browser's CORS-safelisted headers -- so even `GET /expenses` triggers an `OPTIONS` "preflight" request first, same as `POST`/`PATCH`/`DELETE`; if the preflight is not allowed, the browser never sends the real request at all.
+The browser and the API run on different origins in local development -- the Vite dev server on `http://localhost:5173`, the backend on `http://127.0.0.1:8000` -- so the backend must explicitly allow the frontend's origin. A plain `GET` with no custom headers would be a CORS "simple request": the browser sends it directly and only blocks the frontend JavaScript from reading the response if the CORS header is missing. But every request a logged-in frontend sends carries an `Authorization: Bearer ...` header with the session token (`app/auth.py`, Issue #44), and `Authorization` is not one of the browser's CORS-safelisted headers -- so even `GET /expenses` triggers an `OPTIONS` "preflight" request first, same as `POST`/`PATCH`/`DELETE`; if the preflight is not allowed, the browser never sends the real request at all.
 
 `app/main.py` configures `CORSMiddleware` to allow `http://localhost:5173` (Vite's default dev address) plus the deployed frontend's origin (Issue #42), and `GET`, `POST`, `PATCH`, and `DELETE` requests, matching what the frontend currently needs. `allow_headers` explicitly lists `Authorization`, since it is not CORS-safelisted and preflight requests would otherwise be rejected, and `Content-Type` -- listed for clarity even though Starlette's `CORSMiddleware` always allows its own CORS-safelisted request headers (`Accept`, `Accept-Language`, `Content-Language`, and `Content-Type`) regardless of `allow_headers`. If the frontend dev server ever runs on a different port or host, or a future Issue needs another HTTP method or a non-safelisted header from the browser, update the allowed origin/methods/headers there rather than widening it speculatively ahead of need.
 
@@ -179,6 +179,20 @@ This establishes PostgreSQL persistence, including the `expenses` table (Issue #
    ```
    TEST_DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>:5432/expense_classifier_test
    ```
+
+## User accounts and the demo account
+
+Every expense belongs to a user, so you need an account to use the app (Issue #44). With the backend and frontend running, open the frontend and choose **Create an account** on the login screen. See "Established API decisions" in `docs/architecture.md` for how accounts and sessions work.
+
+The migration that added accounts (`8c5fbee890de`) moved every expense that already existed into a `demo@example.com` account, with a password nobody knows. To use that account, give it a password with `scripts/set_password.py`. From the repository root, with the virtual environment active:
+
+```
+python -m scripts.set_password
+```
+
+It asks for the email and the new password (twice). The password is read with `getpass`, so it is never shown, put on the command line, or saved in shell history; run it in a real terminal, since the hidden prompt needs a keyboard. It works for any existing account, uses the same password rules as sign-up, and ends the account's existing sessions.
+
+The script changes whichever database `DATABASE_URL` points at -- your local `expense_classifier_dev` by default. To set a password on the deployed database instead, set `DATABASE_URL` for that terminal session only (see "Setting an environment variable for one command" above) rather than editing `.env`, and never paste the connection string into chat or commit it.
 
 ## Running persistence tests
 

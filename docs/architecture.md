@@ -171,7 +171,6 @@ These are not walking-skeleton Expense fields or concerns, and must not be added
 - a `Transaction` domain model;
 - OCR and automatic line-item extraction;
 - categories and ML predictions;
-- user or account ownership;
 - currency and multi-currency support;
 - merchant normalization and canonical merchant identities;
 - timestamps such as `created_at` and `updated_at`;
@@ -195,6 +194,7 @@ This contract also does not choose API endpoint paths, HTTP methods, status code
 | PostgreSQL | Relational database |
 | SQLAlchemy | ORM and database access layer |
 | Alembic | Database schema migrations |
+| pwdlib (Argon2id) | Password hashing for user accounts |
 | pytest | Backend tests |
 | Ruff | Python linting and formatting |
 | scikit-learn | ML library for later expense categorization |
@@ -337,15 +337,33 @@ name back to its old group.
 These are the established Expense-resource API decisions. Authentication and deployment
 decisions follow below.
 
-Authentication is established too, as a stopgap rather than a long-term design: every route
-except `GET /` requires a shared bearer token (`app/auth.py`, `API_AUTH_TOKEN`), checked
-against a single value every client uses. This is not a user/account system -- there is still
-no concept of a user who owns an Expense. Now that the frontend is deployed too (Issue #42),
-the token is baked into its built JS bundle (`VITE_API_AUTH_TOKEN`) and readable by anyone who
-opens the site in DevTools, so it does **not** protect the shared dataset from a visitor who
-goes looking -- it only deters casual/bot abuse of the raw API by a client that never loads the
-frontend. See Issue #44 for real protection (a login, or a read-only public demo). A
-real user/account auth system remains undecided.
+User accounts and authentication are established (Issue #44), replacing the earlier shared
+`API_AUTH_TOKEN` stopgap, which was readable by anyone from the deployed frontend's JS bundle:
+
+- **Accounts.** Anyone can sign up with an email and password (`POST /auth/register`, which
+  also logs the new account in). Emails are trimmed and lowercased before they are stored or
+  looked up, so they are unique regardless of capitalization. Passwords must be 8 to 128
+  characters and are stored only as Argon2id hashes (`pwdlib`, in `app/auth.py`).
+- **Sessions.** `POST /auth/login` returns a random session token. The client sends it as
+  `Authorization: Bearer <token>`; the `sessions` table stores only its SHA-256 hash. Sessions
+  expire after 7 days, and `POST /auth/logout` ends one immediately. `GET /auth/me` returns
+  the logged-in user. A wrong password and an unknown email get the same 401, so login does
+  not reveal which emails have accounts.
+- **Ownership.** Every Expense and Plaid item belongs to one user (`user_id`). Every route
+  except `GET /` and the `/auth/register` and `/auth/login` routes requires a valid session,
+  and reads or changes only the current user's rows. Another user's expense or Plaid item gets
+  the same 404 as one that does not exist. Plaid's `client_user_id` is the user's id.
+- **Existing data.** The migration that added accounts assigned every existing row to a
+  `demo@example.com` user. That account's password is set with `scripts/set_password.py`
+  (see `docs/development.md`).
+- **Frontend.** The token is kept in `localStorage` rather than a cookie: the frontend and
+  backend are on different `onrender.com` subdomains, and `onrender.com` is a public suffix, so
+  a backend cookie would be a third-party cookie that many browsers block. `AuthGate.tsx`
+  shows the login screen until a session is confirmed, and returns to it whenever the backend
+  answers a request that carried a token with 401.
+
+Not included yet: email verification (planned as a follow-up Issue), password reset, rate
+limiting of login attempts, and roles or admin accounts.
 
 Backend deployment is established too (Issue #36): the database is hosted on Supabase
 (managed PostgreSQL), reached through its **session-mode** connection pooler rather than its
@@ -355,16 +373,15 @@ pooling does not support. The backend itself runs on Render's free web-service t
 (`uvicorn app.main:app`, Virginia/US East region), built and deployed from this repository's
 `main` branch; a free-tier instance spins down after about 15 minutes idle, with a roughly
 one-minute cold start on the next request, which is acceptable for a class demo but not for
-production use. `DATABASE_URL`, `PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_ENV`, and
-`API_AUTH_TOKEN` are configured directly in Render's dashboard rather than committed anywhere.
+production use. `DATABASE_URL` and `PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_ENV` are configured
+directly in Render's dashboard rather than committed anywhere.
 
 Frontend deployment is established too (Issue #42): the React/Vite build is hosted as a
 separate Render **Static Site**, built from this same repository's `frontend/` directory
 (`npm install && npm run build`, publishing the `dist/` folder), rather than a different
 platform such as Vercel -- this keeps the whole project's deploy surface in one dashboard and
-avoids a second GitHub App installation. `VITE_API_BASE_URL` and `VITE_API_AUTH_TOKEN` are set
-at build time in that service's environment to point at the deployed backend and match its
-`API_AUTH_TOKEN`. `CORSMiddleware`'s `allow_origins` includes the deployed frontend's origin
+avoids a second GitHub App installation. `VITE_API_BASE_URL` is set at build time in that
+service's environment to point at the deployed backend. `CORSMiddleware`'s `allow_origins` includes the deployed frontend's origin
 alongside `http://localhost:5173`, which stays for local development.
 
 If `VITE_API_BASE_URL` is ever missing or misspelled in Render's build environment, the build
@@ -374,6 +391,6 @@ Double-check that variable is set correctly after any change to the Static Site'
 
 ## Not decided yet
 
-`GET /expenses`, `POST /expenses`, `PATCH /expenses/{id}`, and `DELETE /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). Backend and frontend deployment are established too (see above). Other endpoints, further request/response schemas, and repository layout remain undecided. They will be documented here as they are established, rather than guessed at now.
+`GET /expenses`, `POST /expenses`, `PATCH /expenses/{id}`, and `DELETE /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). The `/auth/*` endpoints, user accounts, and the login screen are established, and so are backend and frontend deployment (see above). Other endpoints, further request/response schemas, and repository layout remain undecided. They will be documented here as they are established, rather than guessed at now.
 
 Schema and design for Receipt, Transaction, and every other concept listed under "Deferred from this contract" above remain entirely undecided. Categorization itself is no longer in that list -- see "Established API decisions" above for the rule-based baseline and its confidence score; only the later machine-learned classifier remains undecided.

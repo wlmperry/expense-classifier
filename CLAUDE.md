@@ -8,7 +8,7 @@ Expense Classifier is a three-person undergraduate CS senior capstone: a full-st
 
 The first walking skeleton milestone is **complete**: a minimal expense is accepted by the frontend, validated by the API, persisted through the ORM, retrieved again, and displayed, end to end across React + TypeScript -> FastAPI -> SQLAlchemy -> PostgreSQL -> FastAPI -> React.
 
-The active milestone is the **MVP**: baseline rule-based expense categorization, an editing UI (`PATCH /expenses/{id}`), Plaid Sandbox bank-linking, and a shared bearer-token auth stopgap (`app/auth.py`) ahead of deployment are all in scope. OCR, a real user/account auth system, advanced analytics, forecasting, and elaborate dashboards remain out of scope unless an assigned Issue calls for them. Once this milestone is met, this section is stale -- say so rather than working from it.
+The active milestone is the **MVP**: baseline rule-based expense categorization, an editing UI (`PATCH /expenses/{id}`), Plaid Sandbox bank-linking, and email + password user accounts with per-user data (`app/auth.py`, Issue #44, which replaced the earlier shared bearer-token stopgap) are all in scope. OCR, email verification, password reset, advanced analytics, forecasting, and elaborate dashboards remain out of scope unless an assigned Issue calls for them. Once this milestone is met, this section is stale -- say so rather than working from it.
 
 ## Hard rules
 
