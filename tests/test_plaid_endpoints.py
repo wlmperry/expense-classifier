@@ -61,8 +61,8 @@ def test_get_plaid_item_status_returns_null_when_nothing_linked(client, db_sessi
     assert response.json() == {"item_id": None}
 
 
-def test_get_plaid_item_status_returns_the_linked_item_id(client, db_session):
-    _seed_plaid_item(db_session, item_id="item-abc123")
+def test_get_plaid_item_status_returns_the_linked_item_id(user, client, db_session):
+    _seed_plaid_item(db_session, user, item_id="item-abc123")
 
     response = client.get("/plaid/item")
 
@@ -153,12 +153,13 @@ def test_exchange_public_token_rejects_unknown_fields(client, mock_plaid_client)
 
 
 def test_exchange_public_token_is_idempotent_for_an_already_linked_item(
+    user,
     client, db_session, mock_plaid_client
 ):
     """Relinking the same bank gives back the same item_id from Plaid;
     the endpoint should return the existing Item instead of trying (and
     failing, on the unique constraint) to insert a duplicate."""
-    _seed_plaid_item(db_session, item_id="item-abc123")
+    _seed_plaid_item(db_session, user, item_id="item-abc123")
     mock_plaid_client.item_public_token_exchange.return_value = SimpleNamespace(
         item_id="item-abc123", access_token="a-different-access-token"
     )
@@ -185,17 +186,18 @@ def test_exchange_public_token_returns_502_on_plaid_api_failure(client, mock_pla
     assert "invalid public_token" in response.json()["detail"]
 
 
-def _seed_plaid_item(db_session, *, item_id="item-abc123", cursor=None) -> PlaidItem:
-    item = PlaidItem(item_id=item_id, access_token="access-sandbox-abc123", cursor=cursor)
+def _seed_plaid_item(db_session, user, *, item_id="item-abc123", cursor=None) -> PlaidItem:
+    item = PlaidItem(user_id=user.id, item_id=item_id, access_token="access-sandbox-abc123", cursor=cursor)
     db_session.add(item)
     db_session.flush()
     return item
 
 
 def test_sync_creates_categorized_expense_for_each_outflow(
+    user,
     client, db_session, mock_plaid_client
 ):
-    _seed_plaid_item(db_session)
+    _seed_plaid_item(db_session, user)
     mock_plaid_client.transactions_sync.return_value = _sync_response(
         added=[
             SimpleNamespace(
@@ -224,8 +226,8 @@ def test_sync_creates_categorized_expense_for_each_outflow(
     assert categories == {"McDonald's": "Restaurants & Bars", "Uber": "Rideshare & Transit"}
 
 
-def test_sync_skips_non_outflow_transactions(client, db_session, mock_plaid_client):
-    _seed_plaid_item(db_session)
+def test_sync_skips_non_outflow_transactions(user, client, db_session, mock_plaid_client):
+    _seed_plaid_item(db_session, user)
     mock_plaid_client.transactions_sync.return_value = _sync_response(
         added=[
             SimpleNamespace(
@@ -245,9 +247,10 @@ def test_sync_skips_non_outflow_transactions(client, db_session, mock_plaid_clie
 
 
 def test_sync_persists_next_cursor_for_the_following_sync(
+    user,
     client, db_session, mock_plaid_client
 ):
-    item = _seed_plaid_item(db_session, cursor="cursor-0")
+    item = _seed_plaid_item(db_session, user, cursor="cursor-0")
     mock_plaid_client.transactions_sync.return_value = _sync_response(next_cursor="cursor-1")
 
     response = client.post("/plaid/sync/item-abc123")
@@ -259,8 +262,8 @@ def test_sync_persists_next_cursor_for_the_following_sync(
     assert request.cursor == "cursor-0"
 
 
-def test_sync_passes_empty_cursor_on_first_sync(client, db_session, mock_plaid_client):
-    _seed_plaid_item(db_session, cursor=None)
+def test_sync_passes_empty_cursor_on_first_sync(user, client, db_session, mock_plaid_client):
+    _seed_plaid_item(db_session, user, cursor=None)
     mock_plaid_client.transactions_sync.return_value = _sync_response(next_cursor="cursor-1")
 
     client.post("/plaid/sync/item-abc123")
@@ -277,13 +280,15 @@ def test_sync_404s_for_unknown_item_id(client, mock_plaid_client):
 
 
 def test_sync_does_not_reimport_a_transaction_already_persisted(
+    user,
     client, db_session, mock_plaid_client
 ):
     """A transaction from an earlier sync (looked up by its own Plaid
     transaction_id, not the cursor) must not be inserted a second time."""
-    _seed_plaid_item(db_session)
+    _seed_plaid_item(db_session, user)
     db_session.add(
         Expense(
+            user_id=user.id,
             merchant="McDonald's",
             description="MCDONALD'S F1234",
             amount="12.00",
@@ -313,13 +318,15 @@ def test_sync_does_not_reimport_a_transaction_already_persisted(
 
 
 def test_sync_applies_a_modified_transaction_to_the_existing_expense(
+    user,
     client, db_session, mock_plaid_client
 ):
     """A pending charge that later posts at a different amount arrives as
     `modified`, keyed by the same transaction_id -- it must update the
     existing Expense in place, not create a second one."""
-    _seed_plaid_item(db_session)
+    _seed_plaid_item(db_session, user)
     expense = Expense(
+        user_id=user.id,
         merchant="McDonald's",
         description="MCDONALD'S F1234 (pending)",
         amount="10.00",
@@ -351,13 +358,15 @@ def test_sync_applies_a_modified_transaction_to_the_existing_expense(
 
 
 def test_sync_reclassifies_an_auto_categorized_expense_on_modification(
+    user,
     client, db_session, mock_plaid_client
 ):
     """A modified transaction whose merchant changed should get a fresh
     category/confidence, same as before this Issue -- as long as nothing
     ever overrode the original guess."""
-    _seed_plaid_item(db_session)
+    _seed_plaid_item(db_session, user)
     expense = Expense(
+        user_id=user.id,
         merchant="Unknown Co",
         description="Unknown Co",
         amount="10.00",
@@ -389,13 +398,15 @@ def test_sync_reclassifies_an_auto_categorized_expense_on_modification(
 
 
 def test_sync_does_not_override_a_human_chosen_category_on_modification(
+    user,
     client, db_session, mock_plaid_client
 ):
     """Once a human has set this Expense's category (confidence is null),
     a later sync must not quietly put the classifier's guess back, even if
     Plaid reports the same transaction as modified (e.g. pending -> posted)."""
-    _seed_plaid_item(db_session)
+    _seed_plaid_item(db_session, user)
     expense = Expense(
+        user_id=user.id,
         merchant="Unknown Co",
         description="Unknown Co",
         amount="10.00",
@@ -428,13 +439,15 @@ def test_sync_does_not_override_a_human_chosen_category_on_modification(
 
 
 def test_sync_deletes_existing_expense_when_a_modified_transaction_turns_non_outflow(
+    user,
     client, db_session, mock_plaid_client
 ):
     """A modified transaction can flip sign (e.g. a charge reversed into a
     refund); once it's no longer an outflow it should stop being an Expense."""
-    _seed_plaid_item(db_session)
+    _seed_plaid_item(db_session, user)
     db_session.add(
         Expense(
+            user_id=user.id,
             merchant="McDonald's",
             description="MCDONALD'S F1234",
             amount="12.00",
@@ -463,11 +476,13 @@ def test_sync_deletes_existing_expense_when_a_modified_transaction_turns_non_out
 
 
 def test_sync_removes_an_expense_for_a_removed_transaction(
+    user,
     client, db_session, mock_plaid_client
 ):
-    _seed_plaid_item(db_session)
+    _seed_plaid_item(db_session, user)
     db_session.add(
         Expense(
+            user_id=user.id,
             merchant="McDonald's",
             description="MCDONALD'S F1234 (pending)",
             amount="10.00",
@@ -488,9 +503,10 @@ def test_sync_removes_an_expense_for_a_removed_transaction(
 
 
 def test_sync_follows_pagination_until_has_more_is_false(
+    user,
     client, db_session, mock_plaid_client
 ):
-    _seed_plaid_item(db_session, cursor=None)
+    _seed_plaid_item(db_session, user, cursor=None)
     page_one = _sync_response(
         added=[
             SimpleNamespace(
@@ -531,8 +547,8 @@ def test_sync_follows_pagination_until_has_more_is_false(
     assert item.cursor == "cursor-2"
 
 
-def test_sync_returns_502_on_plaid_api_failure(client, db_session, mock_plaid_client):
-    _seed_plaid_item(db_session)
+def test_sync_returns_502_on_plaid_api_failure(user, client, db_session, mock_plaid_client):
+    _seed_plaid_item(db_session, user)
     mock_plaid_client.transactions_sync.side_effect = _plaid_api_exception(
         error_message="ITEM_LOGIN_REQUIRED"
     )

@@ -95,8 +95,8 @@ def _plaid_error_detail(exc: ApiException) -> str:
     return exc.reason or "Plaid request failed"
 
 
-def _expense_from_transaction(transaction: Transaction) -> Expense | None:
-    """Build an unsaved Expense from a Plaid transaction, or None if it's
+def _expense_from_transaction(transaction: Transaction, user_id: int) -> Expense | None:
+    """Build an unsaved Expense owned by user_id from a Plaid transaction, or None if it's
     not an outflow (amount > 0, Plaid's convention for money leaving the
     account) -- deposits and refunds aren't expenses. Plaid already tags
     each transaction with its own category, but it's deliberately ignored
@@ -106,6 +106,7 @@ def _expense_from_transaction(transaction: Transaction) -> Expense | None:
     merchant = transaction.merchant_name or transaction.name
     category, confidence = classify_with_confidence(merchant, transaction.name)
     return Expense(
+        user_id=user_id,
         merchant=merchant,
         description=transaction.name,
         amount=Decimal(str(transaction.amount)).quantize(Decimal("0.01")),
@@ -188,7 +189,21 @@ def read_current_user(user: User = Depends(get_current_user)) -> UserRead:
     return user
 
 
-@app.get("/expenses", dependencies=[Depends(get_current_user)])
+def _get_own_expense(db: Session, user: User, expense_id: int) -> Expense:
+    """The user's Expense with this id, or a 404.
+
+    Another user's Expense gets the same 404 as one that doesn't exist, so
+    nobody can find out which ids belong to other people.
+    """
+    expense = db.get(Expense, expense_id)
+    if expense is None or expense.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
+        )
+    return expense
+
+
+@app.get("/expenses")
 def list_expenses(
     limit: int | None = Query(default=None, gt=0, le=100),
     offset: int = Query(default=0, ge=0, le=9223372036854775807),
@@ -196,11 +211,13 @@ def list_expenses(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
     sort: SortOption | None = Query(default=None),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[ExpenseRead]:
-    """Return persisted Expenses, optionally filtered, sorted, and paginated.
+    """Return the current user's Expenses, optionally filtered, sorted, and
+    paginated.
 
-    With no query parameters, behaves exactly as before: every Expense,
+    With no query parameters: all of the user's Expenses,
     ordered by id. merchant matches case-insensitively, anywhere in the
     field. date_from/date_to are inclusive. sort falls back to ordering by
     id as a tiebreaker, so results stay deterministic when several rows
@@ -209,7 +226,7 @@ def list_expenses(
     See docs/architecture.md's Expense contract and "Established API
     decisions" for the response shape and wire-format guarantees.
     """
-    query = select(Expense)
+    query = select(Expense).where(Expense.user_id == user.id)
 
     if merchant is not None:
         query = query.where(Expense.merchant.icontains(merchant, autoescape=True))
@@ -236,13 +253,14 @@ def list_expenses(
     return db.execute(query).scalars().all()
 
 
-@app.post(
-    "/expenses",
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(get_current_user)],
-)
-def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> ExpenseRead:
-    """Persist one Expense and return the resulting persisted representation.
+@app.post("/expenses", status_code=status.HTTP_201_CREATED)
+def create_expense(
+    payload: ExpenseCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ExpenseRead:
+    """Persist one Expense for the current user and return the resulting
+    persisted representation.
 
     If the client didn't supply a category, the baseline classifier picks
     one from the merchant/description instead of rejecting the request.
@@ -255,6 +273,7 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> Exp
     else:
         category, confidence = classify_with_confidence(payload.merchant, payload.description)
     expense = Expense(
+        user_id=user.id,
         merchant=payload.merchant,
         description=payload.description,
         amount=payload.amount,
@@ -268,24 +287,22 @@ def create_expense(payload: ExpenseCreate, db: Session = Depends(get_db)) -> Exp
     return expense
 
 
-@app.patch("/expenses/{expense_id}", dependencies=[Depends(get_current_user)])
+@app.patch("/expenses/{expense_id}")
 def update_expense(
     payload: ExpenseUpdate,
     expense_id: int = Path(le=2147483647),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ExpenseRead:
-    """Partially update one persisted Expense by id, or 404 if it does not exist.
+    """Partially update one of the current user's Expenses by id, or 404 if
+    it does not exist or belongs to someone else.
 
     Only fields present in the request body are changed; an omitted field
     keeps its existing value. Unlike POST /expenses, category is never
     re-derived from the classifier here -- a client that wants a different
     category has to say so explicitly.
     """
-    expense = db.get(Expense, expense_id)
-    if expense is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
-        )
+    expense = _get_own_expense(db, user, expense_id)
 
     original_category = expense.category
     original_merchant = expense.merchant
@@ -319,60 +336,62 @@ def update_expense(
     return expense
 
 
-@app.delete(
-    "/expenses/{expense_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(get_current_user)],
-)
+@app.delete("/expenses/{expense_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_expense(
-    expense_id: int = Path(le=2147483647), db: Session = Depends(get_db)
+    expense_id: int = Path(le=2147483647),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> None:
-    """Delete one persisted Expense by id, or 404 if it does not exist.
+    """Delete one of the current user's Expenses by id, or 404 if it does
+    not exist or belongs to someone else.
 
     expense_id is capped at Postgres's `integer` column max so an
     out-of-range id is rejected with 422 instead of crashing the
     database lookup.
     """
-    expense = db.get(Expense, expense_id)
-    if expense is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found"
-        )
+    expense = _get_own_expense(db, user, expense_id)
 
     db.delete(expense)
     db.commit()
 
 
-@app.get("/plaid/item", dependencies=[Depends(get_current_user)])
-def get_plaid_item_status(db: Session = Depends(get_db)) -> PlaidItemStatusResponse:
-    """Report whether this project's single demo user already has a bank
-    linked, so the frontend can disable Connect bank instead of letting a
-    second Link session run.
+@app.get("/plaid/item")
+def get_plaid_item_status(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> PlaidItemStatusResponse:
+    """Report whether the current user already has a bank linked, so the
+    frontend can disable Connect bank instead of letting a second Link
+    session run.
 
     This matters because a repeat Link session mints a brand-new item_id
     with its own fresh transaction_ids -- exchange_public_token's
     idempotency check (same item_id already saved) never gets a chance to
     fire, and dedup-by-transaction_id in the sync endpoint can't catch
-    transaction_ids it's never seen before. Only one Item is ever expected
-    to exist (client_user_id is hardcoded below), so the first one found is
-    reported.
+    transaction_ids it's never seen before. Each user is expected to have
+    at most one Item, so the user's first one is reported.
     """
-    item = db.execute(select(PlaidItem).order_by(PlaidItem.id)).scalars().first()
+    item = (
+        db.execute(
+            select(PlaidItem).where(PlaidItem.user_id == user.id).order_by(PlaidItem.id)
+        )
+        .scalars()
+        .first()
+    )
     return PlaidItemStatusResponse(item_id=item.item_id if item is not None else None)
 
 
-@app.post("/plaid/link-token", dependencies=[Depends(get_current_user)])
-def create_plaid_link_token() -> PlaidLinkTokenResponse:
+@app.post("/plaid/link-token")
+def create_plaid_link_token(user: User = Depends(get_current_user)) -> PlaidLinkTokenResponse:
     """Create a Plaid Link token for the frontend to open Link with.
 
-    client_user_id is hardcoded: there's no user/auth system in this
-    project, so every linked bank belongs to the same single demo user.
+    client_user_id is the user's id. Plaid only needs it to be a stable
+    value per user; it must not contain personal details like the email.
     """
     request = LinkTokenCreateRequest(
         client_name="Expense Classifier",
         language="en",
         country_codes=[CountryCode("US")],
-        user=LinkTokenCreateRequestUser(client_user_id="demo-user"),
+        user=LinkTokenCreateRequestUser(client_user_id=str(user.id)),
         products=[Products("transactions")],
     )
     response = _call_plaid(
@@ -408,18 +427,21 @@ def create_sandbox_public_token() -> PlaidSandboxPublicTokenResponse:
 @app.post(
     "/plaid/exchange-public-token",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(get_current_user)],
 )
 def exchange_public_token(
-    payload: PlaidExchangePublicTokenRequest, db: Session = Depends(get_db)
+    payload: PlaidExchangePublicTokenRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> PlaidExchangePublicTokenResponse:
     """Exchange a short-lived public_token for a durable access_token, and
-    persist the resulting Item so later syncs can use it.
+    persist the resulting Item for the current user so later syncs can use it.
 
     item_id is checked for an existing row first: relinking the same bank
     returns the same item_id from Plaid, and inserting it again would hit
     PlaidItem.item_id's unique constraint. Returning the existing Item
-    instead makes this endpoint idempotent rather than erroring.
+    instead makes this endpoint idempotent rather than erroring. An Item
+    already saved for a different user is a 409 rather than being handed
+    over.
     """
     request = ItemPublicTokenExchangeRequest(public_token=payload.public_token)
     response = _call_plaid(
@@ -431,9 +453,16 @@ def exchange_public_token(
         select(PlaidItem).where(PlaidItem.item_id == response.item_id)
     ).scalar_one_or_none()
     if existing is not None:
+        if existing.user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This bank connection is already linked to another account",
+            )
         return PlaidExchangePublicTokenResponse(item_id=existing.item_id)
 
-    item = PlaidItem(item_id=response.item_id, access_token=response.access_token)
+    item = PlaidItem(
+        user_id=user.id, item_id=response.item_id, access_token=response.access_token
+    )
     db.add(item)
     db.commit()
     return PlaidExchangePublicTokenResponse(item_id=item.item_id)
@@ -442,9 +471,12 @@ def exchange_public_token(
 @app.post(
     "/plaid/sync/{item_id}",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(get_current_user)],
 )
-def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> PlaidSyncResponse:
+def sync_plaid_transactions(
+    item_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlaidSyncResponse:
     """Pull every new, changed, and removed transaction for a linked Item
     since its last sync, and apply each to this project's own Expense rows.
 
@@ -462,9 +494,11 @@ def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> Plai
     added_count/added describe only genuinely new Expenses -- a modified
     transaction that already has a matching Expense updates it in place
     without counting as "added".
+
+    Another user's item_id gets the same 404 as an unknown one.
     """
     item = db.execute(
-        select(PlaidItem).where(PlaidItem.item_id == item_id)
+        select(PlaidItem).where(PlaidItem.item_id == item_id, PlaidItem.user_id == user.id)
     ).scalar_one_or_none()
     if item is None:
         raise HTTPException(
@@ -484,7 +518,7 @@ def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> Plai
         for transaction in response.added:
             if _find_expense_by_transaction_id(db, transaction.transaction_id) is not None:
                 continue  # already imported by an earlier call in this same loop/sync
-            expense = _expense_from_transaction(transaction)
+            expense = _expense_from_transaction(transaction, user.id)
             if expense is None:
                 continue  # not an outflow
             db.add(expense)
@@ -493,7 +527,7 @@ def sync_plaid_transactions(item_id: str, db: Session = Depends(get_db)) -> Plai
         for transaction in response.modified:
             existing = _find_expense_by_transaction_id(db, transaction.transaction_id)
             if existing is None:
-                expense = _expense_from_transaction(transaction)
+                expense = _expense_from_transaction(transaction, user.id)
                 if expense is None:
                     continue
                 db.add(expense)
