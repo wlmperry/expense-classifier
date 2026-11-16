@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react"
 import { deleteExpense, fetchExpenses } from "./api"
+import Brand from "./Brand"
 import ConnectBank from "./ConnectBank"
 import ExpenseForm from "./ExpenseForm"
 import SpendingSummary from "./SpendingSummary"
 import { DEFAULT_SORT, SORT_OPTIONS, sortExpenses, type SortOption } from "./sortExpenses"
-import type { Expense } from "./types"
+import type { Expense, User } from "./types"
 
-function App() {
+interface AppProps {
+  user: User
+  onLogout: () => void
+}
+
+// The main page for a logged-in user. AuthGate only renders it once
+// someone is logged in.
+function App({ user, onLogout }: AppProps) {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,17 +65,14 @@ function App() {
     <>
       <header className="site-header">
         <div className="site-header__inner">
-          <span className="brand">
-            <span className="brand__mark" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round">
-                <path d="M5 5l10 10M15 5L5 15" />
-              </svg>
-            </span>
-            <span>
-              Xpense<span className="brand__accent">C</span>
-            </span>
-          </span>
-          <ConnectBank onImported={handleImported} />
+          <Brand />
+          <div className="site-header__actions">
+            <ConnectBank onImported={handleImported} />
+            <span className="site-header__user">{user.email}</span>
+            <button className="button button--secondary" type="button" onClick={onLogout}>
+              Log out
+            </button>
+          </div>
         </div>
       </header>
 

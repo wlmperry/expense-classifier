@@ -22,8 +22,8 @@ VALID_KWARGS = {
 }
 
 
-def test_round_trip_preserves_contract_values(db_session):
-    expense = Expense(**VALID_KWARGS)
+def test_round_trip_preserves_contract_values(user, db_session):
+    expense = Expense(**VALID_KWARGS, user_id=user.id)
     db_session.add(expense)
     db_session.flush()
     db_session.expire_all()
@@ -36,8 +36,8 @@ def test_round_trip_preserves_contract_values(db_session):
     assert fetched.expense_date == VALID_KWARGS["expense_date"]
 
 
-def test_id_is_generated_on_flush(db_session):
-    expense = Expense(**VALID_KWARGS)
+def test_id_is_generated_on_flush(user, db_session):
+    expense = Expense(**VALID_KWARGS, user_id=user.id)
     assert expense.id is None
 
     db_session.add(expense)
@@ -47,71 +47,71 @@ def test_id_is_generated_on_flush(db_session):
 
 
 @pytest.mark.parametrize("amount", [Decimal(0), Decimal("-5.00")])
-def test_non_positive_amount_is_rejected(db_session, amount):
-    db_session.add(Expense(**{**VALID_KWARGS, "amount": amount}))
+def test_non_positive_amount_is_rejected(user, db_session, amount):
+    db_session.add(Expense(**{**VALID_KWARGS, "amount": amount}, user_id=user.id))
 
     with pytest.raises(IntegrityError):
         db_session.flush()
 
 
 @pytest.mark.parametrize("amount", [Decimal("2.755"), Decimal("2.750")])
-def test_amount_with_more_than_two_decimal_places_is_rejected(db_session, amount):
-    db_session.add(Expense(**{**VALID_KWARGS, "amount": amount}))
+def test_amount_with_more_than_two_decimal_places_is_rejected(user, db_session, amount):
+    db_session.add(Expense(**{**VALID_KWARGS, "amount": amount}, user_id=user.id))
 
     with pytest.raises(IntegrityError):
         db_session.flush()
 
 
 @pytest.mark.parametrize("confidence", [Decimal("-0.01"), Decimal("1.01")])
-def test_confidence_outside_zero_to_one_is_rejected(db_session, confidence):
-    db_session.add(Expense(**{**VALID_KWARGS, "confidence": confidence}))
+def test_confidence_outside_zero_to_one_is_rejected(user, db_session, confidence):
+    db_session.add(Expense(**{**VALID_KWARGS, "confidence": confidence}, user_id=user.id))
 
     with pytest.raises(IntegrityError):
         db_session.flush()
 
 
 @pytest.mark.parametrize("confidence", [Decimal(0), Decimal(1), Decimal("0.5"), None])
-def test_confidence_within_zero_to_one_or_null_is_accepted(db_session, confidence):
-    db_session.add(Expense(**{**VALID_KWARGS, "confidence": confidence}))
+def test_confidence_within_zero_to_one_or_null_is_accepted(user, db_session, confidence):
+    db_session.add(Expense(**{**VALID_KWARGS, "confidence": confidence}, user_id=user.id))
 
     db_session.flush()  # must not raise
 
 
 @pytest.mark.parametrize("merchant", ["", "   "])
-def test_blank_merchant_is_rejected(db_session, merchant):
-    db_session.add(Expense(**{**VALID_KWARGS, "merchant": merchant}))
+def test_blank_merchant_is_rejected(user, db_session, merchant):
+    db_session.add(Expense(**{**VALID_KWARGS, "merchant": merchant}, user_id=user.id))
 
     with pytest.raises(IntegrityError):
         db_session.flush()
 
 
 @pytest.mark.parametrize("description", ["", "   "])
-def test_blank_description_is_rejected(db_session, description):
-    db_session.add(Expense(**{**VALID_KWARGS, "description": description}))
+def test_blank_description_is_rejected(user, db_session, description):
+    db_session.add(Expense(**{**VALID_KWARGS, "description": description}, user_id=user.id))
 
     with pytest.raises(IntegrityError):
         db_session.flush()
 
 
 @pytest.mark.parametrize("overrides", [{"merchant": None}, {"description": None}])
-def test_none_required_field_is_rejected(db_session, overrides):
-    db_session.add(Expense(**{**VALID_KWARGS, **overrides}))
+def test_none_required_field_is_rejected(user, db_session, overrides):
+    db_session.add(Expense(**{**VALID_KWARGS, **overrides}, user_id=user.id))
 
     with pytest.raises(IntegrityError):
         db_session.flush()
 
 
-def test_missing_merchant_is_rejected(db_session):
+def test_missing_merchant_is_rejected(user, db_session):
     kwargs = {k: v for k, v in VALID_KWARGS.items() if k != "merchant"}
-    db_session.add(Expense(**kwargs))
+    db_session.add(Expense(**kwargs, user_id=user.id))
 
     with pytest.raises(IntegrityError):
         db_session.flush()
 
 
-def test_missing_description_is_rejected(db_session):
+def test_missing_description_is_rejected(user, db_session):
     kwargs = {k: v for k, v in VALID_KWARGS.items() if k != "description"}
-    db_session.add(Expense(**kwargs))
+    db_session.add(Expense(**kwargs, user_id=user.id))
 
     with pytest.raises(IntegrityError):
         db_session.flush()

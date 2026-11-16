@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import ConnectBank from "./ConnectBank"
 import { API_BASE_URL } from "./config"
+import { saveSessionToken } from "./session"
 import type { Expense } from "./types"
 
 // react-plaid-link's usePlaidLink normally injects Plaid's real Link script
@@ -59,13 +60,14 @@ describe("ConnectBank", () => {
       { ok: true, body: { item_id: null } },
       { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
     ])
+    saveSessionToken("test-session-token")
 
     render(<ConnectBank onImported={() => {}} />)
 
     await screen.findByRole("button", { name: /connect bank/i })
     await vi.waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/plaid/item`, {
-        headers: { Authorization: "Bearer " },
+        headers: { Authorization: "Bearer test-session-token" },
       }),
     )
     expect(fetchMock).not.toHaveBeenCalledWith(
@@ -80,6 +82,7 @@ describe("ConnectBank", () => {
       { ok: true, body: { item_id: null } },
       { ok: true, body: { link_token: "link-sandbox-abc", expiration: "2026-01-01T00:00:00Z" } },
     ])
+    saveSessionToken("test-session-token")
 
     render(<ConnectBank onImported={() => {}} />)
     screen.getByRole("button", { name: /connect bank/i }).click()
@@ -87,7 +90,7 @@ describe("ConnectBank", () => {
     await vi.waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(`${API_BASE_URL}/plaid/link-token`, {
         method: "POST",
-        headers: { Authorization: "Bearer " },
+        headers: { Authorization: "Bearer test-session-token" },
       }),
     )
   })

@@ -1,13 +1,22 @@
-"""SQLAlchemy models for the walking-skeleton Expense contract.
+"""SQLAlchemy models for users, their login sessions, and their expenses.
 
 See docs/architecture.md ("The walking-skeleton Expense contract") for the
-accepted field meanings and invariants this model must preserve.
+accepted field meanings and invariants the Expense model must preserve.
 """
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Date, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.categorize import CATEGORIES
@@ -16,10 +25,60 @@ from app.database import Base
 _CATEGORY_LIST_SQL = ", ".join(f"'{category}'" for category in CATEGORIES)
 
 
+class User(Base):
+    """A person who can log in. Every Expense and PlaidItem belongs to one.
+
+    email is stored lowercased (enforced by the check constraint below), so
+    the plain unique constraint is also case-insensitive: "Dave@x.com" and
+    "dave@x.com" can't both sign up. password_hash is an Argon2id hash from
+    app/auth.py -- the plaintext password is never stored.
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint("email", name="uq_users_email"),
+        CheckConstraint("email = lower(email)", name="ck_users_email_lowercase"),
+    )
+
+
+class UserSession(Base):
+    """One logged-in session, created at login and deleted at logout.
+
+    Only a SHA-256 hash of the session token is stored. The token itself is
+    handed to the client once and never kept, so someone who can read this
+    table still can't use the sessions in it.
+    """
+
+    __tablename__ = "sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", name="fk_sessions_user_id_users", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    __table_args__ = (UniqueConstraint("token_hash", name="uq_sessions_token_hash"),)
+
+
 class Expense(Base):
     __tablename__ = "expenses"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", name="fk_expenses_user_id_users"), nullable=False, index=True
+    )
     merchant: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(String, nullable=False)
     # No precision/scale: PostgreSQL NUMERIC(p, s) would silently round a value
@@ -80,6 +139,9 @@ class PlaidItem(Base):
     __tablename__ = "plaid_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", name="fk_plaid_items_user_id_users"), nullable=False, index=True
+    )
     item_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     access_token: Mapped[str] = mapped_column(String, nullable=False)
     cursor: Mapped[str | None] = mapped_column(String, nullable=True)

@@ -25,6 +25,24 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number]
 
+export interface User {
+    id: number
+    email: string
+}
+
+// Sent to POST /auth/register and /auth/login.
+export interface Credentials {
+    email: string
+    password: string
+}
+
+// Returned by register and login; token goes in later requests'
+// Authorization header (see api.ts).
+export interface AuthResponse {
+    token: string
+    user: User
+}
+
 // uses string for amount to force deliberate parsing and reduce floating point errors
 export interface Expense {
     id: number

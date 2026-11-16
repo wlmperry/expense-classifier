@@ -475,6 +475,83 @@ select:focus-visible,
   color: var(--color-accent-dark);
 }
 
+/* Connect bank, the user's email, and Log out share the right side of the header. */
+.site-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.site-header__user {
+  font-size: 14px;
+  color: var(--color-label);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Login screen ---------- */
+
+.auth-page {
+  min-height: 100vh;
+  padding: 48px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.auth-page__loading {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--color-label);
+}
+
+.auth-form {
+  width: 100%;
+  max-width: 400px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.auth-form h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--color-heading);
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-label);
+}
+
+.auth-form__hint,
+.auth-form__switch {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-label);
+}
+
+/* A button that looks like a text link: it changes the form, it doesn't navigate. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Connect bank sits in the header; its messages wrap beneath the button. */
 .connect-bank {
   display: flex;

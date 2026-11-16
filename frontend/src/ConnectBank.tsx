@@ -30,9 +30,9 @@ function ConnectBank({ onImported }: ConnectBankProps) {
   const [status, setStatus] = useState<"idle" | "connecting" | "syncing" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
   const [importedCount, setImportedCount] = useState<number | null>(null)
-  // Only one Item is ever expected for this project's single demo user (see
-  // create_plaid_link_token's hardcoded client_user_id). Once one exists --
-  // from an earlier session or from this one -- Connect bank is disabled:
+  // Each user is expected to link at most one Item (see the backend's
+  // get_plaid_item_status). Once one exists -- from an earlier session or
+  // from this one -- Connect bank is disabled:
   // a second Link session mints a brand-new item_id with its own fresh
   // transaction_ids, so neither exchange_public_token's same-item_id check
   // nor the sync endpoint's dedup-by-transaction_id can catch a second

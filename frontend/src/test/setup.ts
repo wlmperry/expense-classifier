@@ -7,4 +7,6 @@ import { afterEach } from 'vitest'
 // stay in the DOM and leak into the next test's queries.
 afterEach(() => {
   cleanup()
+  // A saved session token (see session.ts) must not leak into the next test.
+  localStorage.clear()
 })

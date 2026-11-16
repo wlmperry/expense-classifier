@@ -2,6 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
+const testUser = { id: 1, email: 'test-user@example.com' }
+
 // ConnectBank fetches its own link token lazily (on click), but a couple of
 // tests below click into an edit/save flow that can race with it. Routing
 // any such call to a harmless, always-successful response keeps each test's
@@ -38,13 +40,13 @@ describe('App', () => {
 
   it('renders the application heading', () => {
     stubFetch({ ok: true, body: [] })
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
     expect(screen.getByRole('heading', { name: /expense classifier/i })).toBeInTheDocument()
   })
 
   it('shows a loading state before the fetch resolves', () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
     expect(screen.getByText(/loading expenses/i)).toBeInTheDocument()
   })
 
@@ -57,7 +59,7 @@ describe('App', () => {
       ],
     })
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
 
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
     expect(screen.getByText('Coffee')).toBeInTheDocument()
@@ -76,7 +78,7 @@ describe('App', () => {
       ],
     })
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
 
     expect(await screen.findByText('90%')).toBeInTheDocument()
     expect(screen.getByText('—')).toBeInTheDocument()
@@ -85,7 +87,7 @@ describe('App', () => {
   it('shows an empty state when the API returns no expenses', async () => {
     stubFetch({ ok: true, body: [] })
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
 
     expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
   })
@@ -93,7 +95,7 @@ describe('App', () => {
   it('shows an error state when the request fails', async () => {
     stubFetch({ ok: false, status: 500, body: null })
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/failed to fetch expenses: 500/i)
@@ -112,7 +114,7 @@ describe('App', () => {
       ),
     )
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
     expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Corner Store' } })
@@ -131,7 +133,7 @@ describe('App', () => {
       vi.fn((url: string) => stubPlaidLinkToken(url) ?? Promise.reject(new TypeError('Failed to fetch'))),
     )
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/failed to fetch/i)
@@ -150,7 +152,7 @@ describe('App', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }))
@@ -169,7 +171,7 @@ describe('App', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }))
@@ -190,7 +192,7 @@ describe('App', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
@@ -207,7 +209,7 @@ describe('App', () => {
   it('discards changes when Cancel is clicked and keeps the original row', async () => {
     stubFetch({ ok: true, body: [oneExpense] })
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
@@ -230,7 +232,7 @@ describe('App', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
@@ -255,7 +257,7 @@ describe('App', () => {
       ),
     )
 
-    render(<App />)
+    render(<App user={testUser} onLogout={() => {}} />)
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }))
@@ -281,7 +283,7 @@ describe('App', () => {
     it('shows expenses newest first by default', async () => {
       stubFetch({ ok: true, body: [older, newer, middle] })
 
-      render(<App />)
+      render(<App user={testUser} onLogout={() => {}} />)
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       expect(screen.getByLabelText(/sort by/i)).toHaveValue('date-desc')
@@ -291,7 +293,7 @@ describe('App', () => {
     it('reorders the list when a different sort option is chosen', async () => {
       stubFetch({ ok: true, body: [older, newer, middle] })
 
-      render(<App />)
+      render(<App user={testUser} onLogout={() => {}} />)
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       fireEvent.change(screen.getByLabelText(/sort by/i), { target: { value: 'amount-desc' } })
@@ -318,7 +320,7 @@ describe('App', () => {
         ),
       )
 
-      render(<App />)
+      render(<App user={testUser} onLogout={() => {}} />)
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Nike Store' } })
@@ -344,7 +346,7 @@ describe('App', () => {
     it('shows the total and a per-category breakdown of the loaded expenses', async () => {
       stubFetch({ ok: true, body: [coffee, fuel] })
 
-      render(<App />)
+      render(<App user={testUser} onLogout={() => {}} />)
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       const summary = within(summaryRegion())
@@ -365,7 +367,7 @@ describe('App', () => {
     it('shows an empty message when there are no expenses', async () => {
       stubFetch({ ok: true, body: [] })
 
-      render(<App />)
+      render(<App user={testUser} onLogout={() => {}} />)
       expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
 
       const summary = within(summaryRegion())
@@ -376,7 +378,7 @@ describe('App', () => {
     it('is not shown while expenses are loading or when loading fails', async () => {
       stubFetch({ ok: false, status: 500, body: null })
 
-      render(<App />)
+      render(<App user={testUser} onLogout={() => {}} />)
       expect(screen.queryByRole('region', { name: /spending summary/i })).not.toBeInTheDocument()
 
       await screen.findByRole('alert')
@@ -397,7 +399,7 @@ describe('App', () => {
         ),
       )
 
-      render(<App />)
+      render(<App user={testUser} onLogout={() => {}} />)
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
       expect(within(summaryRegion()).getByText('$3.50', { selector: '.summary-card__total-amount' })).toBeInTheDocument()
 
@@ -424,7 +426,7 @@ describe('App', () => {
         }),
       )
 
-      render(<App />)
+      render(<App user={testUser} onLogout={() => {}} />)
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
       expect(within(summaryRegion()).getByText('$45.50')).toBeInTheDocument()
 
@@ -448,7 +450,7 @@ describe('App', () => {
         ),
       )
 
-      render(<App />)
+      render(<App user={testUser} onLogout={() => {}} />)
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
       expect(within(summaryRegion()).getByText('$45.50')).toBeInTheDocument()
 

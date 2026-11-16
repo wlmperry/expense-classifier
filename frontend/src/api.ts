@@ -1,5 +1,8 @@
-import { API_AUTH_TOKEN, API_BASE_URL } from "./config"
+import { API_BASE_URL } from "./config"
+import { endSession, getSessionToken } from "./session"
 import type {
+    AuthResponse,
+    Credentials,
     Expense,
     ExpenseCreate,
     ExpenseUpdate,
@@ -7,15 +10,56 @@ import type {
     PlaidItemStatusResponse,
     PlaidLinkTokenResponse,
     PlaidSyncResponse,
+    User,
 } from "./types"
 
-// Every backend request goes through this wrapper so the shared bearer
-// token (see config.ts) is added in exactly one place.
-function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-    return fetch(`${API_BASE_URL}${path}`, {
-        ...init,
-        headers: { ...init.headers, Authorization: `Bearer ${API_AUTH_TOKEN}` },
+// Every backend request goes through this wrapper, so the session token is
+// added, and an ended session is noticed, in exactly one place.
+async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+    const token = getSessionToken()
+    const headers = token ? { ...init.headers, Authorization: `Bearer ${token}` } : init.headers
+    const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers })
+    // Only a 401 for a request that carried a token means "your session
+    // ended". A failed login is also a 401, but it is sent without a token
+    // and must show its error on the login form instead.
+    if (response.status === 401 && token) {
+        endSession()
+    }
+    return response
+}
+
+export async function register(credentials: Credentials): Promise<AuthResponse> {
+    return sendCredentials("/auth/register", credentials)
+}
+
+export async function login(credentials: Credentials): Promise<AuthResponse> {
+    return sendCredentials("/auth/login", credentials)
+}
+
+async function sendCredentials(path: string, credentials: Credentials): Promise<AuthResponse> {
+    const response = await apiFetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
     })
+    if (!response.ok) {
+        throw new Error(await authErrorMessage(response))
+    }
+    return response.json()
+}
+
+export async function logout(): Promise<void> {
+    // The caller clears the saved token either way, so a failure here
+    // (e.g. the session had already expired) is not reported.
+    await apiFetch("/auth/logout", { method: "POST" })
+}
+
+export async function fetchCurrentUser(): Promise<User> {
+    const response = await apiFetch("/auth/me")
+    if (!response.ok) {
+        throw new Error(`Failed to check login: ${response.status}`)
+    }
+    return response.json()
 }
 
 export async function fetchExpenses(): Promise<Expense[]> {
@@ -98,6 +142,26 @@ export async function syncPlaidTransactions(itemId: string): Promise<PlaidSyncRe
 // FastAPI reports validation failures as 422 with {"detail": [{"loc": [...], "msg": "..."}]}.
 interface ValidationErrorBody {
     detail?: { loc: (string | number)[]; msg: string }[]
+}
+
+async function authErrorMessage(response: Response): Promise<string> {
+    if (response.status === 401) {
+        return "Invalid email or password."
+    }
+    if (response.status === 409) {
+        return "An account with this email already exists."
+    }
+    if (response.status === 422) {
+        const body: ValidationErrorBody | null = await response.json().catch(() => null)
+        const fields = new Set(body?.detail?.map((item) => item.loc.at(-1)))
+        if (fields.has("email")) {
+            return "Enter a valid email address."
+        }
+        if (fields.has("password")) {
+            return "Password must be 8 to 128 characters."
+        }
+    }
+    return `Something went wrong (${response.status}). Please try again.`
 }
 
 async function expenseErrorMessage(response: Response): Promise<string> {

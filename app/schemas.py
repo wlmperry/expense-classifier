@@ -167,8 +167,66 @@ class ExpenseUpdate(BaseModel):
         return self
 
 
+# Deliberately loose: one "@" with something on both sides and a dot in the
+# domain. Fully validating email syntax would need the email-validator
+# package; the real proof an address works is email verification, which is
+# planned as a later Issue.
+_EMAIL_RE = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+# The longest address the email standards allow.
+_EMAIL_MAX_LENGTH = 254
+# Argon2id handles long input fine; the cap just stops a multi-megabyte
+# "password" from being sent to the hasher.
+_PASSWORD_MAX_LENGTH = 128
+
+
+class LoginRequest(BaseModel):
+    """Email and password sent to POST /auth/login.
+
+    email is trimmed and lowercased here, so every lookup and insert sees
+    the same form. Login only requires a non-empty password: a too-short
+    one simply won't match, which gives the same "Invalid email or
+    password" answer as any other wrong password.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    email: str
+    password: str = Field(min_length=1, max_length=_PASSWORD_MAX_LENGTH)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if len(v) > _EMAIL_MAX_LENGTH or not _EMAIL_RE.fullmatch(v):
+            raise ValueError("must be a valid email address")
+        return v
+
+
+class RegisterRequest(LoginRequest):
+    """Same as LoginRequest, plus the minimum length a new password needs."""
+
+    password: str = Field(min_length=8, max_length=_PASSWORD_MAX_LENGTH)
+
+
+class UserRead(BaseModel):
+    """The public view of a user. Never includes password_hash."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+
+
+class AuthResponse(BaseModel):
+    """Returned by register and login. token goes in later requests'
+    Authorization header as `Bearer <token>`."""
+
+    token: str
+    user: UserRead
+
+
 class PlaidItemStatusResponse(BaseModel):
-    """Whether this project's single demo user already has a bank linked.
+    """Whether the current user already has a bank linked.
 
     item_id is None when no Item has ever been linked.
     """

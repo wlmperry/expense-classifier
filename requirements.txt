@@ -2,7 +2,10 @@ alembic==1.20.0
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
+argon2-cffi==25.1.0
+argon2-cffi-bindings==26.2.0
 certifi==2026.10.18
+cffi==2.1.1
 click==8.5.0
 colorama==0.4.6
 fastapi==0.141.1
@@ -20,6 +23,8 @@ plaid-python==46.0.0
 pluggy==1.6.0
 psycopg==3.3.6
 psycopg-binary==3.3.6
+pwdlib==0.4.2
+pycparser==3.12
 pydantic==2.13.5
 pydantic_core==2.46.5
 Pygments==2.21.0
