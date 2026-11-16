@@ -93,6 +93,11 @@ class Expense(Base):
     # classifier (see app/categorize.py) whenever it's the one picking the
     # category instead.
     confidence: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    # Which step of app/categorize.py's categorize() picked the category:
+    # "rules" (keyword rules) or "model" (the ML classifier). Null whenever
+    # the category isn't an automatic guess -- a person chose or edited it --
+    # and for the "Other" fallback, where neither step recognized the expense.
+    category_source: Mapped[str | None] = mapped_column(String, nullable=True)
     # Only set for expenses imported via Plaid sync; lets a later sync look
     # a transaction up to dedupe it, apply a Plaid-side edit, or delete it.
     plaid_transaction_id: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -105,6 +110,10 @@ class Expense(Base):
         CheckConstraint(
             "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
             name="ck_expenses_confidence_range",
+        ),
+        CheckConstraint(
+            "category_source IS NULL OR category_source IN ('rules', 'model')",
+            name="ck_expenses_category_source_allowed",
         ),
         CheckConstraint(
             "char_length(trim(merchant)) > 0", name="ck_expenses_merchant_not_blank"

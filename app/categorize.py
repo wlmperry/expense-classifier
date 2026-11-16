@@ -8,7 +8,9 @@ calls out to anything external, so it stays fast and reproducible.
 """
 
 import re
+from dataclasses import dataclass
 from decimal import Decimal
+from typing import Literal
 
 CATEGORIES: tuple[str, ...] = (
     "Groceries",
@@ -85,8 +87,57 @@ _COMPILED_KEYWORD_RULES: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = t
 )
 
 
+# Below this probability, the ML model's guess is not used and the expense is
+# categorized as Other instead. Picked with scripts/evaluate_classifier.py:
+# see that script's threshold table for the trade-off.
+MIN_MODEL_CONFIDENCE = Decimal("0.2")
+
+CategorySource = Literal["rules", "model"]
+
+
+@dataclass(frozen=True)
+class Categorization:
+    category: str
+    confidence: Decimal
+    # Which step picked the category. None for the "Other" fallback, since
+    # neither the rules nor the model actually recognized the expense.
+    source: CategorySource | None
+
+
+def categorize(merchant: str, description: str = "") -> Categorization:
+    """The app's categorizer: keyword rules first, then the ML model.
+
+    1. If a keyword rule matches, the rules decide, exactly as before the
+       model existed. They are predictable, and right for the merchants
+       they list.
+    2. If no rule matches, the ML model (app/ml_classifier.py) guesses from
+       what it learned from app/training_data.csv.
+    3. If the model's probability is below MIN_MODEL_CONFIDENCE, the guess
+       is too unsure to show, and the category is Other, with the same 0.2
+       confidence the rules have always given an unrecognized expense.
+    """
+    rule_match = match_rules(merchant, description)
+    if rule_match is not None:
+        return Categorization(*rule_match, source="rules")
+
+    # Imported here, not at the top of the file: alembic migration
+    # 3c86f19d4985 imports this module, and shouldn't have to load
+    # scikit-learn to do it.
+    from app.ml_classifier import predict
+
+    category, probability = predict(merchant, description)
+    # Compared before rounding, so the cutoff is exactly the one
+    # scripts/evaluate_classifier.py reports (a raw 0.196 is below 0.2 even
+    # though it would round to 0.20). Rounded only for storage.
+    if probability >= MIN_MODEL_CONFIDENCE and category != "Other":
+        confidence = Decimal(str(round(float(probability), 2)))
+        return Categorization(category, confidence, source="model")
+    return Categorization("Other", Decimal("0.2"), source=None)
+
+
 def classify(merchant: str, description: str = "") -> str:
-    """Guess a category for an expense from its merchant name and description.
+    """Guess a category for an expense from its merchant name and description,
+    using the keyword rules only.
 
     A thin wrapper around classify_with_confidence() for callers that only
     need the category. See that function for the matching rules.
@@ -95,7 +146,13 @@ def classify(merchant: str, description: str = "") -> str:
 
 
 def classify_with_confidence(merchant: str, description: str = "") -> tuple[str, Decimal]:
-    """Guess a category for an expense, with a confidence score.
+    """The keyword rules' category and confidence, or ("Other", 0.2) when no
+    rule matches. Rules only: categorize() is the app's full categorizer.
+
+    Keep this function's name and signature: alembic migration 3c86f19d4985
+    imports it.
+
+    Guess a category for an expense, with a confidence score.
 
     Matching is case-insensitive and keyword-boundary-aware over both fields
     together, so a keyword only matches a whole word (or word-like token),
@@ -127,6 +184,12 @@ def classify_with_confidence(merchant: str, description: str = "") -> tuple[str,
       - more than one category matches (ambiguous; the first one by rule
         order is returned, same as before this existed): 0.5
     """
+    return match_rules(merchant, description) or ("Other", Decimal("0.2"))
+
+
+def match_rules(merchant: str, description: str = "") -> tuple[str, Decimal] | None:
+    """The keyword rules' category and confidence, or None if no rule matches.
+    See classify_with_confidence() for how matching and confidence work."""
     haystack = f"{merchant} {description}".lower()
     all_spans = [
         (match.start(), match.end(), category, pattern)
@@ -154,7 +217,7 @@ def classify_with_confidence(merchant: str, description: str = "") -> tuple[str,
     ]
 
     if not matched:
-        return "Other", Decimal("0.2")
+        return None
     if len(matched) > 1:
         return matched[0][0], Decimal("0.5")
     category, hits = matched[0]

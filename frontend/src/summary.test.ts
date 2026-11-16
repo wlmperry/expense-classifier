@@ -12,6 +12,7 @@ function expense(amount: string, category: string): Expense {
     expense_date: '2026-09-01',
     category,
     confidence: null,
+    category_source: null,
   }
 }
 

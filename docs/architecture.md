@@ -197,7 +197,7 @@ This contract also does not choose API endpoint paths, HTTP methods, status code
 | pwdlib (Argon2id) | Password hashing for user accounts |
 | pytest | Backend tests |
 | Ruff | Python linting and formatting |
-| scikit-learn | ML library for later expense categorization |
+| scikit-learn | ML library for expense categorization (Issue #55) |
 
 ## Current scope versus later directions
 
@@ -207,7 +207,7 @@ This contract also does not choose API endpoint paths, HTTP methods, status code
 
 **Later, and deliberately not designed yet**
 
-- Machine-learned categorization with scikit-learn, once the expense pipeline works.
+- Retraining the ML classifier from users' own category corrections (the hybrid classifier itself is established; see Issue #55).
 - Receipt OCR and item-level extraction.
 - Richer analytics, summaries, and dashboards.
 
@@ -307,9 +307,9 @@ every `null` case rather than trying to tell them apart. `confidence` is persist
 included in `ExpenseRead`. A keyword match fully contained inside a longer match anywhere in the
 text (e.g. the standalone `"airlines"` keyword inside the `"united airlines"` keyword, or
 `"uber"` inside `"uber eats"`) is discarded before scoring, so one specific phrase can't inflate
-its own hit count or make an unrelated category look ambiguous. The machine-learned classifier
-scikit-learn is meant for (see "Not decided yet" below) would replace this baseline and its
-confidence heuristic together, not layer on top of them.
+its own hit count or make an unrelated category look ambiguous. (This section originally said a
+machine-learned classifier would replace this baseline rather than layer on top of it. Issue #55
+chose the opposite, a hybrid; see "Machine-learned categorization" below.)
 
 **Caveat for rows that predate this Issue:** the migration that added `confidence` set it to
 `null` for every pre-existing row, including ones the classifier itself categorized before this
@@ -333,6 +333,35 @@ Housing & Utilities to Utilities, Shopping to General Merchandise, Entertainment
 Events, Health & Fitness to Medical). Per the caveat above, that includes rows from before
 confidence existed, so their specific name is a default, not a guess. The downgrade maps each new
 name back to its old group.
+
+**Machine-learned categorization (Issue #55)** is established as a **hybrid** with the keyword
+rules, in `app/categorize.py`'s `categorize()`, which every new expense (manual or Plaid-imported)
+goes through:
+
+1. If a keyword rule matches, the rules decide, with their heuristic confidence (above).
+2. If no rule matches, a scikit-learn model (`app/ml_classifier.py`) predicts a category, and
+   `confidence` is the model's probability for it.
+3. If that probability is below `MIN_MODEL_CONFIDENCE` (0.2), or the model's best guess is
+   Other, the category is Other with confidence 0.2, as before the model existed.
+
+The model is a scikit-learn `Pipeline`: `TfidfVectorizer` over character 2-5-grams within words,
+then `LogisticRegression`. It is trained in-process from `app/training_data.csv` (459 labeled,
+made-up examples covering all 20 categories, no real financial data) once per process, at
+startup via FastAPI's `lifespan` hook, and kept in memory; no model file is saved or loaded, so
+the model is exactly reproducible from the CSV and no pickle is ever deserialized. Existing
+database rows are deliberately not used as training data, since most of their categories came
+from the keyword rules themselves. `scripts/evaluate_classifier.py` measures the model on a
+stratified, seeded 25% held-out split: 53% accuracy overall, and 78% accuracy on the 52% of
+held-out examples where its probability reaches the 0.2 threshold. `classify_with_confidence()`
+stays rules-only, because migration `3c86f19d4985` imports it.
+
+`expenses.category_source` records which step decided: `"rules"`, `"model"`, or `null`. It
+follows `confidence`: `null` whenever the category isn't an automatic guess (a person chose or
+changed it), and also for the Other fallback. Migration `0254b9b63975` backfilled `"rules"` for
+every existing row with a confidence score, since the model did not exist before it.
+`ExpenseRead` includes it, and the frontend shows an "ML" or "Rules" badge next to the category.
+
+Not included yet: retraining from users' corrections, and re-categorizing existing expenses.
 
 These are the established Expense-resource API decisions. Authentication and deployment
 decisions follow below.
@@ -393,4 +422,4 @@ Double-check that variable is set correctly after any change to the Static Site'
 
 `GET /expenses`, `POST /expenses`, `PATCH /expenses/{id}`, and `DELETE /expenses/{id}`, and their request/response schemas, are established (see "Established API decisions" above). An editing UI on the frontend is also established (the same PATCH endpoint, driving an edit form in `App.tsx`/`ExpenseForm.tsx`). The `/auth/*` endpoints, user accounts, and the login screen are established, and so are backend and frontend deployment (see above). Other endpoints, further request/response schemas, and repository layout remain undecided. They will be documented here as they are established, rather than guessed at now.
 
-Schema and design for Receipt, Transaction, and every other concept listed under "Deferred from this contract" above remain entirely undecided. Categorization itself is no longer in that list -- see "Established API decisions" above for the rule-based baseline and its confidence score; only the later machine-learned classifier remains undecided.
+Schema and design for Receipt, Transaction, and every other concept listed under "Deferred from this contract" above remain entirely undecided. Categorization itself is no longer in that list -- see "Established API decisions" above for the rule-based baseline, its confidence score, and the machine-learned classifier layered on top of it (Issue #55).

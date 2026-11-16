@@ -194,6 +194,20 @@ It asks for the email and the new password (twice). The password is read with `g
 
 The script changes whichever database `DATABASE_URL` points at -- your local `expense_classifier_dev` by default. To set a password on the deployed database instead, set `DATABASE_URL` for that terminal session only (see "Setting an environment variable for one command" above) rather than editing `.env`, and never paste the connection string into chat or commit it.
 
+## The ML classifier and its training data
+
+New expenses are categorized by keyword rules first, then by a scikit-learn model when no rule matches (Issue #55; see "Machine-learned categorization" in `docs/architecture.md`). The model trains from `app/training_data.csv` each time the backend starts, so there is no model file to build or download.
+
+To see how well it does on examples it has not trained on, from the repository root with the virtual environment active:
+
+```
+python -m scripts.evaluate_classifier
+```
+
+It prints overall accuracy, precision and recall per category, and how the confidence threshold (`MIN_MODEL_CONFIDENCE` in `app/categorize.py`) trades how often the model answers against how often it is right.
+
+To improve the model, add rows to `app/training_data.csv` (`merchant,description,category`, using one of the 20 category names exactly), then rerun the script. Rows with descriptive words real bank lines contain ("petro", "pizzeria", "rx") help more than extra brand names, since they carry over to merchants the model has never seen. Keep every row made up: no real transactions or account data. `tests/test_ml_classifier.py` fails if held-out accuracy drops below 45% or any category has fewer than 15 examples.
+
 ## Running persistence tests
 
 Persistence tests (`tests/test_expense_model.py`) run against the dedicated `expense_classifier_test` database created in step 6 above -- never against `expense_classifier_dev`. At the start of a test session they drop and recreate the ORM-mapped schema there (`Base.metadata.drop_all()` / `create_all()`), and each individual test runs inside a transaction that is rolled back afterward, so no test data persists between tests or between runs.

@@ -84,6 +84,26 @@ describe('App', () => {
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 
+  it('labels whether the rules or the ML model picked each category', async () => {
+    stubFetch({
+      ok: true,
+      body: [
+        { id: 1, merchant: 'Starbucks', description: 'Latte', amount: '5.00', expense_date: '2026-09-01', category: 'Coffee Shops', confidence: '0.75', category_source: 'rules' },
+        { id: 2, merchant: 'Valley Petro', description: 'Diesel', amount: '40.00', expense_date: '2026-09-02', category: 'Gas & Fuel', confidence: '0.81', category_source: 'model' },
+        { id: 3, merchant: 'Corner Store', description: 'Snacks', amount: '3.00', expense_date: '2026-09-03', category: 'Other', confidence: null, category_source: null },
+      ],
+    })
+
+    render(<App user={testUser} onLogout={() => {}} />)
+
+    const rowFor = async (merchant: string) => (await screen.findByRole('cell', { name: merchant })).closest('tr')!
+    expect(within(await rowFor('Starbucks')).getByText('Rules')).toBeInTheDocument()
+    expect(within(await rowFor('Valley Petro')).getByText('ML')).toBeInTheDocument()
+    const personRow = within(await rowFor('Corner Store'))
+    expect(personRow.queryByText('ML')).not.toBeInTheDocument()
+    expect(personRow.queryByText('Rules')).not.toBeInTheDocument()
+  })
+
   it('shows an empty state when the API returns no expenses', async () => {
     stubFetch({ ok: true, body: [] })
 

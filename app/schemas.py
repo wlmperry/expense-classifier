@@ -63,6 +63,10 @@ class ExpenseRead(BaseModel):
     # it directly, or a PATCH changed it, so there's no classifier guess
     # to score. Never settable by a client: see app/categorize.py.
     confidence: Decimal | None
+    # "rules" or "model": which step of the categorizer picked the category
+    # (see app/categorize.py). Null when it isn't an automatic guess, or for
+    # the "Other" fallback.
+    category_source: Literal["rules", "model"] | None
 
 
 class ExpenseCreate(BaseModel):

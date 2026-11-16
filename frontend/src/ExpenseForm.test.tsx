@@ -20,6 +20,7 @@ const EXISTING_EXPENSE = {
   expense_date: '2026-09-02',
   category: 'Gas & Fuel',
   confidence: null,
+  category_source: null,
 }
 
 const noop = {

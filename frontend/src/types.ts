@@ -54,13 +54,17 @@ export interface Expense {
     // Null means category wasn't auto-classified (a human supplied or
     // changed it), so there's no classifier guess to show.
     confidence: string | null
+    // Which part of the backend's categorizer picked the category: the
+    // keyword rules or the ML model. Null when a person chose it (or it's the
+    // "Other" fallback), same as confidence.
+    category_source: "rules" | "model" | null
 }
 
 // The shape sent to POST /expenses: the backend owns `id` and `confidence`
 // (the latter is only ever a classifier output, never client-supplied), and
 // category is optional (the backend's baseline classifier fills it in when
 // omitted).
-export type ExpenseCreate = Omit<Expense, "id" | "category" | "confidence"> & {
+export type ExpenseCreate = Omit<Expense, "id" | "category" | "confidence" | "category_source"> & {
   category?: Category
 }
 
@@ -69,7 +73,7 @@ export type ExpenseCreate = Omit<Expense, "id" | "category" | "confidence"> & {
 // not-yet-built dropdown -- so it's left out entirely rather than typed as
 // always-optional-but-unused. confidence is never client-supplied, same as
 // ExpenseCreate.
-export type ExpenseUpdate = Partial<Omit<Expense, "id" | "category" | "confidence">>
+export type ExpenseUpdate = Partial<Omit<Expense, "id" | "category" | "confidence" | "category_source">>
 
 export interface PlaidItemStatusResponse {
     item_id: string | null
