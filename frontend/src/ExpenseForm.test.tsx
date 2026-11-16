@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import ExpenseForm from './ExpenseForm'
 import { API_BASE_URL } from './config'
+import { saveSessionToken } from './session'
 
 const SAVED_EXPENSE = {
   id: 7,
@@ -64,6 +65,7 @@ describe('ExpenseForm', () => {
 
   it('POSTs the expense with amount as a JSON string and no id', async () => {
     const fetchMock = stubFetch({ ok: true, body: SAVED_EXPENSE })
+    saveSessionToken('test-session-token')
     render(<ExpenseForm {...noop} />)
 
     fillAndSubmit()
@@ -75,7 +77,7 @@ describe('ExpenseForm', () => {
     expect(init.method).toBe('POST')
     expect(init.headers).toEqual({
       'Content-Type': 'application/json',
-      Authorization: 'Bearer ',
+      Authorization: 'Bearer test-session-token',
     })
     // Compare the raw JSON text so a number (3.5) could not sneak past as equal to "3.50".
     expect(init.body).toBe(
