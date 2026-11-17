@@ -3,6 +3,7 @@ import { deleteExpense, fetchExpenses } from "./api"
 import Brand from "./Brand"
 import ConnectBank from "./ConnectBank"
 import ExpenseForm from "./ExpenseForm"
+import SpendingPatterns from "./SpendingPatterns"
 import SpendingSummary from "./SpendingSummary"
 import { DEFAULT_SORT, SORT_OPTIONS, sortExpenses, type SortOption } from "./sortExpenses"
 import type { Expense, User } from "./types"
@@ -83,6 +84,7 @@ function App({ user, onLogout }: AppProps) {
         </div>
 
         {!loading && !error && <SpendingSummary expenses={expenses} />}
+        {!loading && !error && <SpendingPatterns expenses={expenses} />}
 
         <div className="page-columns">
           <section className="card expenses-card" aria-labelledby="expenses-heading">

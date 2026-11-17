@@ -19,7 +19,7 @@ export interface SpendingSummary {
 // Amounts arrive as decimal strings with at most two decimal places (the
 // backend enforces this), so rounding to whole cents is exact. Summing
 // integer cents instead of floats avoids totals like 42.300000000000004.
-function toCents(amount: string): number {
+export function toCents(amount: string): number {
     return Math.round(Number(amount) * 100)
 }
 

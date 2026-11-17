@@ -364,6 +364,74 @@ body {
   color: var(--color-muted);
 }
 
+/* ---------- Spending patterns ---------- */
+
+.patterns-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.patterns-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.patterns-card__filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-label);
+}
+
+/* Day-of-week and month charts side by side; stacked on narrow screens. */
+.patterns-card__charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 40px;
+}
+
+.patterns-chart h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.patterns-chart__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Day or month label, bar, amount on one line. */
+.patterns-chart__row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 90px;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.patterns-chart__label {
+  font-weight: 600;
+  color: var(--color-label);
+}
+
+.patterns-chart__amount {
+  text-align: right;
+}
+
 /* ---------- Form ---------- */
 
 .expense-form {
@@ -622,5 +690,9 @@ select:focus-visible,
   .summary-breakdown__bar {
     grid-column: 1 / -1;
     grid-row: 2;
+  }
+
+  .patterns-card__charts {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

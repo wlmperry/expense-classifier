@@ -481,4 +481,128 @@ describe('App', () => {
       expect(summary.queryByText('Gas & Fuel')).not.toBeInTheDocument()
     })
   })
+
+  describe('spending patterns', () => {
+    // 2026-09-01 is a Tuesday, 2026-09-02 a Wednesday.
+    const coffee = { ...oneExpense, category: 'Coffee Shops', confidence: null, category_source: null }
+    const fuel = { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Gas & Fuel', confidence: null, category_source: null }
+
+    function patternsRegion() {
+      return within(screen.getByRole('region', { name: /spending patterns/i }))
+    }
+
+    // The amount shown for one day or month, e.g. amountFor('day of week', 'Tue').
+    function amountFor(chart: 'day of week' | 'month', label: string) {
+      const list = patternsRegion().getByRole('list', { name: new RegExp(`spending by ${chart}`, 'i') })
+      const row = within(list)
+        .getAllByRole('listitem')
+        .find((item) => item.querySelector('.patterns-chart__label')?.textContent === label)
+      return row?.querySelector('.patterns-chart__amount')?.textContent
+    }
+
+    it('shows spend by day of week and by month for all spending', async () => {
+      stubFetch({ ok: true, body: [coffee, fuel] })
+
+      render(<App user={testUser} onLogout={() => {}} />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+      expect(patternsRegion().getByLabelText('Category')).toHaveValue('')
+      expect(amountFor('day of week', 'Tue')).toBe('$3.50')
+      expect(amountFor('day of week', 'Wed')).toBe('$42.00')
+      expect(amountFor('day of week', 'Mon')).toBe('$0.00')
+      expect(amountFor('month', 'Sep')).toBe('$45.50')
+    })
+
+    it('offers only categories that have spending, and shows one category when chosen', async () => {
+      stubFetch({ ok: true, body: [coffee, fuel] })
+
+      render(<App user={testUser} onLogout={() => {}} />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+
+      const select = patternsRegion().getByLabelText('Category') as HTMLSelectElement
+      expect(Array.from(select.options).map((option) => option.textContent)).toEqual([
+        'All categories',
+        'Coffee Shops',
+        'Gas & Fuel',
+      ])
+
+      fireEvent.change(select, { target: { value: 'Gas & Fuel' } })
+
+      expect(amountFor('day of week', 'Tue')).toBe('$0.00')
+      expect(amountFor('day of week', 'Wed')).toBe('$42.00')
+      expect(amountFor('month', 'Sep')).toBe('$42.00')
+    })
+
+    it('updates when an expense is added', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: RequestInit) =>
+          stubPlaidLinkToken(url) ??
+          Promise.resolve({
+            ok: true,
+            status: init?.method === 'POST' ? 201 : 200,
+            json: () => Promise.resolve(init?.method === 'POST' ? fuel : [coffee]),
+          }),
+        ),
+      )
+
+      render(<App user={testUser} onLogout={() => {}} />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+      expect(amountFor('month', 'Sep')).toBe('$3.50')
+
+      fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Gas Station' } })
+      fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Fuel' } })
+      fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '42.00' } })
+      fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: '2026-09-02' } })
+      fireEvent.click(screen.getByRole('button', { name: /add expense/i }))
+
+      expect(await screen.findByText('Gas Station')).toBeInTheDocument()
+      expect(amountFor('month', 'Sep')).toBe('$45.50')
+      expect(amountFor('day of week', 'Wed')).toBe('$42.00')
+    })
+
+    it('goes back to all categories when the chosen category has no expenses left', async () => {
+      vi.stubGlobal('confirm', vi.fn(() => true))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: RequestInit) =>
+          stubPlaidLinkToken(url) ??
+          Promise.resolve({
+            ok: true,
+            status: init?.method === 'DELETE' ? 204 : 200,
+            json: () => Promise.resolve(init?.method === 'DELETE' ? undefined : [coffee, fuel]),
+          }),
+        ),
+      )
+
+      render(<App user={testUser} onLogout={() => {}} />)
+      expect(await screen.findByText('Corner Store')).toBeInTheDocument()
+      fireEvent.change(patternsRegion().getByLabelText('Category'), { target: { value: 'Gas & Fuel' } })
+
+      fireEvent.click(screen.getByRole('button', { name: /delete expense at gas station/i }))
+
+      await vi.waitFor(() => expect(screen.queryByText('Gas Station')).not.toBeInTheDocument())
+      expect(patternsRegion().getByLabelText('Category')).toHaveValue('')
+      expect(amountFor('month', 'Sep')).toBe('$3.50')
+    })
+
+    it('shows an empty message when there are no expenses', async () => {
+      stubFetch({ ok: true, body: [] })
+
+      render(<App user={testUser} onLogout={() => {}} />)
+      expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
+
+      expect(patternsRegion().getByText(/no spending to show patterns for yet/i)).toBeInTheDocument()
+      expect(patternsRegion().queryByLabelText('Category')).not.toBeInTheDocument()
+    })
+
+    it('is not shown when loading fails', async () => {
+      stubFetch({ ok: false, status: 500, body: null })
+
+      render(<App user={testUser} onLogout={() => {}} />)
+      await screen.findByRole('alert')
+
+      expect(screen.queryByRole('region', { name: /spending patterns/i })).not.toBeInTheDocument()
+    })
+  })
 })
