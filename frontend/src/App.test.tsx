@@ -33,15 +33,22 @@ function stubFetch(response: { ok: boolean; status?: number; body: unknown }) {
   )
 }
 
+// The app opens on the Overview tab. The expense table and form are on
+// Transactions, and the summary and patterns cards are on Insights.
+function showTab(name: 'Overview' | 'Transactions' | 'Insights') {
+  fireEvent.click(screen.getByRole('button', { name }))
+}
+
 describe('App', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
 
-  it('renders the application heading', () => {
+  it('opens on the Overview tab', () => {
     stubFetch({ ok: true, body: [] })
     render(<App user={testUser} onLogout={() => {}} />)
-    expect(screen.getByRole('heading', { name: /expense classifier/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: /your spending/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('shows a loading state before the fetch resolves', () => {
@@ -60,6 +67,7 @@ describe('App', () => {
     })
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
 
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
     expect(screen.getByText('Coffee')).toBeInTheDocument()
@@ -79,6 +87,7 @@ describe('App', () => {
     })
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
 
     expect(await screen.findByText('90%')).toBeInTheDocument()
     expect(screen.getByText('—')).toBeInTheDocument()
@@ -95,6 +104,7 @@ describe('App', () => {
     })
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
 
     const rowFor = async (merchant: string) => (await screen.findByRole('cell', { name: merchant })).closest('tr')!
     expect(within(await rowFor('Starbucks')).getByText('Rules')).toBeInTheDocument()
@@ -108,6 +118,7 @@ describe('App', () => {
     stubFetch({ ok: true, body: [] })
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
 
     expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
   })
@@ -135,6 +146,7 @@ describe('App', () => {
     )
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
     expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Corner Store' } })
@@ -173,6 +185,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }))
@@ -192,6 +205,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }))
@@ -213,6 +227,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
@@ -230,6 +245,7 @@ describe('App', () => {
     stubFetch({ ok: true, body: [oneExpense] })
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
@@ -253,6 +269,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
@@ -278,6 +295,7 @@ describe('App', () => {
     )
 
     render(<App user={testUser} onLogout={() => {}} />)
+    showTab('Transactions')
     expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /delete/i }))
@@ -304,6 +322,7 @@ describe('App', () => {
       stubFetch({ ok: true, body: [older, newer, middle] })
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       expect(screen.getByLabelText(/sort by/i)).toHaveValue('date-desc')
@@ -314,6 +333,7 @@ describe('App', () => {
       stubFetch({ ok: true, body: [older, newer, middle] })
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       fireEvent.change(screen.getByLabelText(/sort by/i), { target: { value: 'amount-desc' } })
@@ -341,6 +361,7 @@ describe('App', () => {
       )
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Nike Store' } })
@@ -360,6 +381,7 @@ describe('App', () => {
     const fuel = { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Gas & Fuel', confidence: null }
 
     function summaryRegion() {
+      showTab('Insights')
       return screen.getByRole('region', { name: /spending summary/i })
     }
 
@@ -367,6 +389,7 @@ describe('App', () => {
       stubFetch({ ok: true, body: [coffee, fuel] })
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       const summary = within(summaryRegion())
@@ -388,6 +411,7 @@ describe('App', () => {
       stubFetch({ ok: true, body: [] })
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
 
       const summary = within(summaryRegion())
@@ -399,6 +423,7 @@ describe('App', () => {
       stubFetch({ ok: false, status: 500, body: null })
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Insights')
       expect(screen.queryByRole('region', { name: /spending summary/i })).not.toBeInTheDocument()
 
       await screen.findByRole('alert')
@@ -420,8 +445,11 @@ describe('App', () => {
       )
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
       expect(within(summaryRegion()).getByText('$3.50', { selector: '.summary-card__total-amount' })).toBeInTheDocument()
+
+      showTab('Transactions')
 
       fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Gas Station' } })
       fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Fuel' } })
@@ -447,8 +475,11 @@ describe('App', () => {
       )
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
       expect(within(summaryRegion()).getByText('$45.50')).toBeInTheDocument()
+
+      showTab('Transactions')
 
       fireEvent.click(screen.getByRole('button', { name: /edit expense at corner store/i }))
       fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '50.00' } })
@@ -471,8 +502,11 @@ describe('App', () => {
       )
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
       expect(within(summaryRegion()).getByText('$45.50')).toBeInTheDocument()
+
+      showTab('Transactions')
 
       fireEvent.click(screen.getByRole('button', { name: /delete expense at gas station/i }))
 
@@ -488,6 +522,7 @@ describe('App', () => {
     const fuel = { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Gas & Fuel', confidence: null, category_source: null }
 
     function patternsRegion() {
+      showTab('Insights')
       return within(screen.getByRole('region', { name: /spending patterns/i }))
     }
 
@@ -504,6 +539,7 @@ describe('App', () => {
       stubFetch({ ok: true, body: [coffee, fuel] })
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       expect(patternsRegion().getByLabelText('Category')).toHaveValue('')
@@ -517,6 +553,7 @@ describe('App', () => {
       stubFetch({ ok: true, body: [coffee, fuel] })
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
 
       const select = patternsRegion().getByLabelText('Category') as HTMLSelectElement
@@ -547,8 +584,11 @@ describe('App', () => {
       )
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
       expect(amountFor('month', 'Sep')).toBe('$3.50')
+
+      showTab('Transactions')
 
       fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Gas Station' } })
       fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Fuel' } })
@@ -576,9 +616,14 @@ describe('App', () => {
       )
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText('Corner Store')).toBeInTheDocument()
       fireEvent.change(patternsRegion().getByLabelText('Category'), { target: { value: 'Gas & Fuel' } })
 
+      // Since Issue #58, deleting happens on the Transactions tab, and leaving
+      // Insights unmounts the card, so it comes back on All categories anyway.
+      // This now checks the end result, not SpendingPatterns' own fallback.
+      showTab('Transactions')
       fireEvent.click(screen.getByRole('button', { name: /delete expense at gas station/i }))
 
       await vi.waitFor(() => expect(screen.queryByText('Gas Station')).not.toBeInTheDocument())
@@ -590,6 +635,7 @@ describe('App', () => {
       stubFetch({ ok: true, body: [] })
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Transactions')
       expect(await screen.findByText(/no expenses found/i)).toBeInTheDocument()
 
       expect(patternsRegion().getByText(/no spending to show patterns for yet/i)).toBeInTheDocument()
@@ -600,9 +646,104 @@ describe('App', () => {
       stubFetch({ ok: false, status: 500, body: null })
 
       render(<App user={testUser} onLogout={() => {}} />)
+      showTab('Insights')
       await screen.findByRole('alert')
 
       expect(screen.queryByRole('region', { name: /spending patterns/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('overview tab', () => {
+    const kroger = { id: 3, merchant: 'Kroger', description: 'Groceries', amount: '10.00', expense_date: '2026-08-01', category: 'Groceries', confidence: null, category_source: null }
+    const coffee = { ...oneExpense, category: 'Coffee Shops', confidence: null, category_source: 'rules' }
+    const fuel = { id: 2, merchant: 'Gas Station', description: 'Fuel', amount: '42.00', expense_date: '2026-09-02', category: 'Gas & Fuel', confidence: null, category_source: null }
+
+    function bigTotal() {
+      return screen.getByText(/^\$/, { selector: '.overview-sheet__big' }).textContent
+    }
+
+    it('shows the newest month with spending, compared with the month before', async () => {
+      stubFetch({ ok: true, body: [kroger, coffee, fuel] })
+
+      render(<App user={testUser} onLogout={() => {}} />)
+
+      expect(await screen.findByText('September 2026')).toBeInTheDocument()
+      expect(bigTotal()).toBe('$45.50')
+      expect(screen.getByText(/2 expenses\. \$35\.50 more than all of August\./)).toBeInTheDocument()
+      expect(screen.getByText('Gas & Fuel', { selector: 'dd' })).toBeInTheDocument()
+      expect(screen.getByText('50%', { selector: 'dd' })).toBeInTheDocument()
+    })
+
+    it('moves between months and stops at the oldest one', async () => {
+      stubFetch({ ok: true, body: [kroger, coffee, fuel] })
+
+      render(<App user={testUser} onLogout={() => {}} />)
+      expect(await screen.findByText('September 2026')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /previous month/i }))
+
+      expect(screen.getByText('August 2026')).toBeInTheDocument()
+      expect(bigTotal()).toBe('$10.00')
+      expect(screen.getByRole('button', { name: /previous month/i })).toBeDisabled()
+    })
+
+    it('drills down from a group to a single expense, and back up one level at a time', async () => {
+      stubFetch({ ok: true, body: [kroger, coffee, fuel] })
+
+      render(<App user={testUser} onLogout={() => {}} />)
+      expect(await screen.findByRole('heading', { name: 'Where it went' })).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /^Transportation/ }))
+      expect(screen.getByRole('heading', { name: 'Transportation' })).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /^Gas & Fuel/ }))
+      fireEvent.click(screen.getByRole('button', { name: /^Gas Station/ }))
+
+      expect(screen.getByRole('heading', { name: 'Gas Station' })).toBeInTheDocument()
+      expect(screen.getByText('Fuel')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /gas & fuel/i }))
+      expect(screen.getByRole('heading', { name: 'Gas & Fuel' })).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /transportation/i }))
+      fireEvent.click(screen.getByRole('button', { name: /all spending/i }))
+      expect(screen.getByRole('heading', { name: 'Where it went' })).toBeInTheDocument()
+    })
+
+    it('updates after an expense is added on the Transactions tab', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn((url: string, init?: RequestInit) =>
+          stubPlaidLinkToken(url) ??
+          Promise.resolve({
+            ok: true,
+            status: init?.method === 'POST' ? 201 : 200,
+            json: () => Promise.resolve(init?.method === 'POST' ? fuel : [coffee]),
+          }),
+        ),
+      )
+
+      render(<App user={testUser} onLogout={() => {}} />)
+      expect(await screen.findByText('September 2026')).toBeInTheDocument()
+      expect(bigTotal()).toBe('$3.50')
+
+      showTab('Transactions')
+      fireEvent.change(screen.getByLabelText(/merchant/i), { target: { value: 'Gas Station' } })
+      fireEvent.change(screen.getByLabelText(/description/i), { target: { value: 'Fuel' } })
+      fireEvent.change(screen.getByLabelText(/amount/i), { target: { value: '42.00' } })
+      fireEvent.change(screen.getByLabelText(/^date$/i), { target: { value: '2026-09-02' } })
+      fireEvent.click(screen.getByRole('button', { name: /add expense/i }))
+      expect(await screen.findByRole('cell', { name: 'Gas Station' })).toBeInTheDocument()
+
+      showTab('Overview')
+      expect(bigTotal()).toBe('$45.50')
+    })
+
+    it('shows an error instead of the overview when loading fails', async () => {
+      stubFetch({ ok: false, status: 500, body: null })
+
+      render(<App user={testUser} onLogout={() => {}} />)
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/failed to fetch expenses: 500/i)
+      expect(screen.queryByRole('heading', { name: 'Where it went' })).not.toBeInTheDocument()
     })
   })
 })

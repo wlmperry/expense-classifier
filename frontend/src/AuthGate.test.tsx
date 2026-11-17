@@ -62,7 +62,7 @@ describe('AuthGate', () => {
     render(<AuthGate />)
     submitCredentials('dave@example.com', 'a-long-password')
 
-    expect(await screen.findByRole('heading', { name: /expense classifier/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /your spending/i })).toBeInTheDocument()
     expect(screen.getByText('dave@example.com')).toBeInTheDocument()
     expect(getSessionToken()).toBe('token-123')
     await vi.waitFor(() => expect(authHeaderOf(fetchMock, 'GET', '/expenses')).toBe('Bearer token-123'))
@@ -89,7 +89,7 @@ describe('AuthGate', () => {
     expect(screen.getByRole('heading', { name: /create an account/i })).toBeInTheDocument()
     submitCredentials('dave@example.com', 'a-long-password')
 
-    expect(await screen.findByRole('heading', { name: /expense classifier/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /your spending/i })).toBeInTheDocument()
     const registerCall = fetchMock.mock.calls.find(([url]) => url.endsWith('/auth/register'))
     expect(JSON.parse(registerCall?.[1]?.body as string)).toEqual({
       email: 'dave@example.com',
@@ -113,7 +113,7 @@ describe('AuthGate', () => {
 
     render(<AuthGate />)
 
-    expect(await screen.findByRole('heading', { name: /expense classifier/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /your spending/i })).toBeInTheDocument()
     expect(authHeaderOf(fetchMock, 'GET', '/auth/me')).toBe('Bearer token-saved')
   })
 
@@ -174,7 +174,7 @@ describe('AuthGate', () => {
     render(<AuthGate />)
     fireEvent.click(await screen.findByRole('button', { name: /try again/i }))
 
-    expect(await screen.findByRole('heading', { name: /expense classifier/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /your spending/i })).toBeInTheDocument()
     expect(meCalls).toBe(2)
   })
 
