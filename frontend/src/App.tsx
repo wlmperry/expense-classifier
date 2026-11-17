@@ -3,6 +3,8 @@ import { deleteExpense, fetchExpenses } from "./api"
 import Brand from "./Brand"
 import ConnectBank from "./ConnectBank"
 import ExpenseForm from "./ExpenseForm"
+import Overview from "./Overview"
+import { localToday } from "./monthOverview"
 import SpendingPatterns from "./SpendingPatterns"
 import SpendingSummary from "./SpendingSummary"
 import { DEFAULT_SORT, SORT_OPTIONS, sortExpenses, type SortOption } from "./sortExpenses"
@@ -13,6 +15,16 @@ interface AppProps {
   onLogout: () => void
 }
 
+// The three sections of the app. Only the chosen tab is rendered; the
+// expense list itself lives in App, so every tab reads the same data.
+const TABS = {
+  overview: { label: "Overview", title: "Your spending" },
+  transactions: { label: "Transactions", title: "Every expense" },
+  insights: { label: "Insights", title: "Spending insights" },
+} as const
+
+type Tab = keyof typeof TABS
+
 // The main page for a logged-in user. AuthGate only renders it once
 // someone is logged in.
 function App({ user, onLogout }: AppProps) {
@@ -22,6 +34,7 @@ function App({ user, onLogout }: AppProps) {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
   const [sortOption, setSortOption] = useState<SortOption>(DEFAULT_SORT)
+  const [tab, setTab] = useState<Tab>("overview")
 
   // Sorting happens at render time rather than in state, so added, edited,
   // and imported expenses land in the right place without any extra work.
@@ -67,6 +80,19 @@ function App({ user, onLogout }: AppProps) {
       <header className="site-header">
         <div className="site-header__inner">
           <Brand />
+          <nav className="tabs" aria-label="Sections">
+            {(Object.keys(TABS) as Tab[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                className="tabs__tab"
+                aria-current={tab === key ? "page" : undefined}
+                onClick={() => setTab(key)}
+              >
+                {TABS[key].label}
+              </button>
+            ))}
+          </nav>
           <div className="site-header__actions">
             <ConnectBank onImported={handleImported} />
             <span className="site-header__user">{user.email}</span>
@@ -79,122 +105,138 @@ function App({ user, onLogout }: AppProps) {
 
       <main className="page">
         <div className="page-title">
-          <p className="page-title__eyebrow">Your ledger</p>
-          <h1>Expense Classifier</h1>
+          <p className="page-title__eyebrow">{TABS[tab].label}</p>
+          <h1>{TABS[tab].title}</h1>
         </div>
 
-        {!loading && !error && <SpendingSummary expenses={expenses} />}
-        {!loading && !error && <SpendingPatterns expenses={expenses} />}
+        {/* Transactions shows loading and errors inside its own card. */}
+        {tab !== "transactions" && loading && <p className="page-message">Loading expenses...</p>}
+        {tab !== "transactions" && error && (
+          <p role="alert" className="message message--error">
+            Error: {error}
+          </p>
+        )}
 
-        <div className="page-columns">
-          <section className="card expenses-card" aria-labelledby="expenses-heading">
-            <div className="expenses-card__header">
-              <h2 id="expenses-heading">All expenses</h2>
-              <label className="sort-control">
-                Sort by
-                <select
-                  value={sortOption}
-                  onChange={(event) => setSortOption(event.target.value as SortOption)}
-                >
-                  {Object.entries(SORT_OPTIONS).map(([value, { label }]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            {loading && <p className="expenses-card__message">Loading expenses...</p>}
-            {error && (
-              <p role="alert" className="message message--error">
-                Error: {error}
-              </p>
-            )}
-            {deleteError && (
-              <p role="alert" className="message message--error">
-                {deleteError}
-              </p>
-            )}
-            {!loading && !error && expenses.length === 0 && (
-              <p className="expenses-card__message">No expenses found.</p>
-            )}
-            {!loading && !error && expenses.length > 0 && (
-              <div className="table-scroll">
-                <table className="expenses-table">
-                  <thead>
-                    <tr>
-                      <th>Merchant</th>
-                      <th>Description</th>
-                      <th className="col-amount">Amount</th>
-                      <th>Date</th>
-                      <th>Category</th>
-                      <th>Confidence</th>
-                      <th className="col-actions">
-                        <span className="visually-hidden">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedExpenses.map((expense) => (
-                      <tr key={expense.id}>
-                        <td className="col-merchant">{expense.merchant}</td>
-                        <td>{expense.description}</td>
-                        <td className="col-amount">{expense.amount}</td>
-                        <td className="col-date">{expense.expense_date}</td>
-                        <td>
-                          <span className="category-tag">{expense.category}</span>
-                          {expense.category_source && (
-                            <span
-                              className={`source-tag source-tag--${expense.category_source}`}
-                              title={
-                                expense.category_source === "model"
-                                  ? "Categorized by the machine-learning model"
-                                  : "Categorized by the keyword rules"
-                              }
-                            >
-                              {expense.category_source === "model" ? "ML" : "Rules"}
-                            </span>
-                          )}
-                        </td>
-                        <td>
-                          {expense.confidence == null
-                            ? "—"
-                            : `${Math.round(Number(expense.confidence) * 100)}%`}
-                        </td>
-                        <td className="col-actions">
-                          <span className="row-actions">
-                            <button
-                              className="button button--secondary button--small"
-                              aria-label={`Edit expense at ${expense.merchant}`}
-                              onClick={() => setEditingExpense(expense)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="button button--secondary button--small button--danger"
-                              aria-label={`Delete expense at ${expense.merchant}`}
-                              onClick={() => handleDelete(expense)}
-                            >
-                              Delete
-                            </button>
-                          </span>
-                        </td>
-                      </tr>
+        {tab === "overview" && !loading && !error && <Overview expenses={expenses} today={localToday()} />}
+
+        {tab === "insights" && !loading && !error && (
+          <>
+            <SpendingSummary expenses={expenses} />
+            <SpendingPatterns expenses={expenses} />
+          </>
+        )}
+
+        {tab === "transactions" && (
+          <div className="page-columns">
+            <section className="card expenses-card" aria-labelledby="expenses-heading">
+              <div className="expenses-card__header">
+                <h2 id="expenses-heading">All expenses</h2>
+                <label className="sort-control">
+                  Sort by
+                  <select
+                    value={sortOption}
+                    onChange={(event) => setSortOption(event.target.value as SortOption)}
+                  >
+                    {Object.entries(SORT_OPTIONS).map(([value, { label }]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
                     ))}
-                  </tbody>
-                </table>
+                  </select>
+                </label>
               </div>
-            )}
-          </section>
+              {loading && <p className="expenses-card__message">Loading expenses...</p>}
+              {error && (
+                <p role="alert" className="message message--error">
+                  Error: {error}
+                </p>
+              )}
+              {deleteError && (
+                <p role="alert" className="message message--error">
+                  {deleteError}
+                </p>
+              )}
+              {!loading && !error && expenses.length === 0 && (
+                <p className="expenses-card__message">No expenses found.</p>
+              )}
+              {!loading && !error && expenses.length > 0 && (
+                <div className="table-scroll">
+                  <table className="expenses-table">
+                    <thead>
+                      <tr>
+                        <th>Merchant</th>
+                        <th>Description</th>
+                        <th className="col-amount">Amount</th>
+                        <th>Date</th>
+                        <th>Category</th>
+                        <th>Confidence</th>
+                        <th className="col-actions">
+                          <span className="visually-hidden">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedExpenses.map((expense) => (
+                        <tr key={expense.id}>
+                          <td className="col-merchant">{expense.merchant}</td>
+                          <td>{expense.description}</td>
+                          <td className="col-amount">{expense.amount}</td>
+                          <td className="col-date">{expense.expense_date}</td>
+                          <td>
+                            <span className="category-tag">{expense.category}</span>
+                            {expense.category_source && (
+                              <span
+                                className={`source-tag source-tag--${expense.category_source}`}
+                                title={
+                                  expense.category_source === "model"
+                                    ? "Categorized by the machine-learning model"
+                                    : "Categorized by the keyword rules"
+                                }
+                              >
+                                {expense.category_source === "model" ? "ML" : "Rules"}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            {expense.confidence == null
+                              ? "—"
+                              : `${Math.round(Number(expense.confidence) * 100)}%`}
+                          </td>
+                          <td className="col-actions">
+                            <span className="row-actions">
+                              <button
+                                className="button button--secondary button--small"
+                                aria-label={`Edit expense at ${expense.merchant}`}
+                                onClick={() => setEditingExpense(expense)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="button button--secondary button--small button--danger"
+                                aria-label={`Delete expense at ${expense.merchant}`}
+                                onClick={() => handleDelete(expense)}
+                              >
+                                Delete
+                              </button>
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
 
-          <ExpenseForm
-            key={editingExpense?.id ?? "create"}
-            expenseToEdit={editingExpense}
-            onCreated={handleCreated}
-            onUpdated={handleUpdated}
-            onCancelEdit={() => setEditingExpense(null)}
-          />
-        </div>
+            <ExpenseForm
+              key={editingExpense?.id ?? "create"}
+              expenseToEdit={editingExpense}
+              onCreated={handleCreated}
+              onUpdated={handleUpdated}
+              onCancelEdit={() => setEditingExpense(null)}
+            />
+          </div>
+        )}
       </main>
     </>
   )
