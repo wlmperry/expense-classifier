@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from plaid.exceptions import ApiException
+from sqlalchemy.exc import IntegrityError
 
 from app.models import Expense, PlaidItem
 
@@ -54,20 +55,83 @@ def _sync_response(*, added=(), modified=(), removed=(), next_cursor="cursor-1",
     )
 
 
-def test_get_plaid_item_status_returns_null_when_nothing_linked(client, db_session):
-    response = client.get("/plaid/item")
+def _item_get_response(institution_id="ins_109508", institution_name="First Platypus Bank"):
+    return SimpleNamespace(
+        item=SimpleNamespace(institution_id=institution_id, institution_name=institution_name)
+    )
+
+
+def test_list_plaid_items_is_empty_when_nothing_linked(client, db_session, mock_plaid_client):
+    response = client.get("/plaid/items")
 
     assert response.status_code == 200
-    assert response.json() == {"item_id": None}
+    assert response.json() == []
 
 
-def test_get_plaid_item_status_returns_the_linked_item_id(user, client, db_session):
-    _seed_plaid_item(db_session, user, item_id="item-abc123")
+def test_list_plaid_items_returns_every_linked_bank_oldest_first(
+    user, client, db_session, mock_plaid_client
+):
+    _seed_plaid_item(db_session, user, item_id="item-1", institution_id="ins_1", institution_name="Bank One")
+    _seed_plaid_item(db_session, user, item_id="item-2", institution_id="ins_2", institution_name="Bank Two")
 
-    response = client.get("/plaid/item")
+    response = client.get("/plaid/items")
 
     assert response.status_code == 200
-    assert response.json() == {"item_id": "item-abc123"}
+    assert response.json() == [
+        {"item_id": "item-1", "institution_name": "Bank One"},
+        {"item_id": "item-2", "institution_name": "Bank Two"},
+    ]
+    mock_plaid_client.item_get.assert_not_called()
+
+
+def test_list_plaid_items_looks_up_an_older_item_once_and_saves_it(
+    user, client, db_session, mock_plaid_client
+):
+    """Items linked before Issue #60 have no institution saved; the first
+    listing asks Plaid and stores it, so the second doesn't ask again."""
+    item = _seed_plaid_item(db_session, user, item_id="item-old")
+    mock_plaid_client.item_get.return_value = _item_get_response()
+
+    first = client.get("/plaid/items")
+    second = client.get("/plaid/items")
+
+    assert first.json() == second.json() == [
+        {"item_id": "item-old", "institution_name": "First Platypus Bank"}
+    ]
+    assert mock_plaid_client.item_get.call_count == 1
+    db_session.refresh(item)
+    assert item.institution_id == "ins_109508"
+
+
+def test_list_plaid_items_handles_the_same_bank_linked_twice_before_issue_60(
+    user, client, db_session, mock_plaid_client
+):
+    """Both old rows get the bank's name, but only the first can carry the
+    institution id under the (user_id, institution_id) unique constraint."""
+    first = _seed_plaid_item(db_session, user, item_id="item-old-1")
+    second = _seed_plaid_item(db_session, user, item_id="item-old-2")
+    mock_plaid_client.item_get.return_value = _item_get_response()
+
+    response = client.get("/plaid/items")
+
+    assert response.status_code == 200
+    assert [row["institution_name"] for row in response.json()] == ["First Platypus Bank"] * 2
+    db_session.refresh(first)
+    db_session.refresh(second)
+    assert first.institution_id == "ins_109508"
+    assert second.institution_id is None
+
+
+def test_list_plaid_items_still_lists_a_bank_when_plaid_is_unreachable(
+    user, client, db_session, mock_plaid_client
+):
+    _seed_plaid_item(db_session, user, item_id="item-old")
+    mock_plaid_client.item_get.side_effect = _plaid_api_exception()
+
+    response = client.get("/plaid/items")
+
+    assert response.status_code == 200
+    assert response.json() == [{"item_id": "item-old", "institution_name": None}]
 
 
 def test_create_link_token_returns_link_token_and_expiration(client, mock_plaid_client):
@@ -173,6 +237,111 @@ def test_exchange_public_token_is_idempotent_for_an_already_linked_item(
     assert db_session.query(PlaidItem).filter_by(item_id="item-abc123").count() == 1
 
 
+def _exchange(client, public_token="public-sandbox-new", institution_id="ins_1", institution_name="Bank One"):
+    return client.post(
+        "/plaid/exchange-public-token",
+        json={
+            "public_token": public_token,
+            "institution_id": institution_id,
+            "institution_name": institution_name,
+        },
+    )
+
+
+def test_exchange_public_token_saves_the_bank_from_link_metadata(
+    user, client, db_session, mock_plaid_client
+):
+    mock_plaid_client.item_public_token_exchange.return_value = SimpleNamespace(
+        item_id="item-new", access_token="access-new"
+    )
+
+    response = _exchange(client)
+
+    assert response.status_code == 201
+    saved = db_session.query(PlaidItem).filter_by(item_id="item-new").one()
+    assert (saved.institution_id, saved.institution_name) == ("ins_1", "Bank One")
+
+
+def test_exchange_public_token_allows_a_second_different_bank(
+    user, client, db_session, mock_plaid_client
+):
+    _seed_plaid_item(db_session, user, item_id="item-1", institution_id="ins_1", institution_name="Bank One")
+    mock_plaid_client.item_public_token_exchange.return_value = SimpleNamespace(
+        item_id="item-2", access_token="access-2"
+    )
+
+    response = _exchange(client, institution_id="ins_2", institution_name="Bank Two")
+
+    assert response.status_code == 201
+    assert db_session.query(PlaidItem).filter_by(user_id=user.id).count() == 2
+
+
+def test_exchange_public_token_refuses_a_bank_already_linked_without_exchanging(
+    user, client, db_session, mock_plaid_client
+):
+    _seed_plaid_item(db_session, user, item_id="item-1", institution_id="ins_1", institution_name="Bank One")
+
+    response = _exchange(client, institution_id="ins_1")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "This bank is already connected to your account"}
+    mock_plaid_client.item_public_token_exchange.assert_not_called()
+    assert db_session.query(PlaidItem).filter_by(user_id=user.id).count() == 1
+
+
+def test_exchange_public_token_counts_banks_linked_before_issue_60(
+    user, client, db_session, mock_plaid_client
+):
+    """An older Item with no institution saved is looked up from Plaid
+    first, so linking that same bank again is still refused."""
+    _seed_plaid_item(db_session, user, item_id="item-old")
+    mock_plaid_client.item_get.return_value = _item_get_response(institution_id="ins_1")
+
+    response = _exchange(client, institution_id="ins_1")
+
+    assert response.status_code == 409
+    mock_plaid_client.item_public_token_exchange.assert_not_called()
+
+
+def test_exchange_public_token_lets_two_users_link_the_same_bank(
+    user, other_user, client, db_session, mock_plaid_client
+):
+    _seed_plaid_item(db_session, other_user, item_id="item-theirs", institution_id="ins_1", institution_name="Bank One")
+    mock_plaid_client.item_public_token_exchange.return_value = SimpleNamespace(
+        item_id="item-mine", access_token="access-mine"
+    )
+
+    response = _exchange(client, institution_id="ins_1")
+
+    assert response.status_code == 201
+
+
+def test_exchange_public_token_returns_409_when_a_simultaneous_link_wins_the_race(
+    user, client, db_session, mock_plaid_client
+):
+    """Two requests can both pass the duplicate check before either saves.
+    Here the fake Plaid call saves a competing row mid-request, as the other
+    request would; the unique constraint must turn the second save into a 409."""
+
+    def exchange_while_another_request_saves(_request):
+        _seed_plaid_item(db_session, user, item_id="item-other-request", institution_id="ins_1", institution_name="Bank One")
+        return SimpleNamespace(item_id="item-this-request", access_token="access-this")
+
+    mock_plaid_client.item_public_token_exchange.side_effect = exchange_while_another_request_saves
+
+    response = _exchange(client, institution_id="ins_1")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "This bank is already connected to your account"}
+
+
+def test_database_rejects_the_same_bank_twice_for_one_user(user, db_session):
+    _seed_plaid_item(db_session, user, item_id="item-1", institution_id="ins_1", institution_name="Bank One")
+
+    with pytest.raises(IntegrityError):
+        _seed_plaid_item(db_session, user, item_id="item-2", institution_id="ins_1", institution_name="Bank One")
+
+
 def test_exchange_public_token_returns_502_on_plaid_api_failure(client, mock_plaid_client):
     mock_plaid_client.item_public_token_exchange.side_effect = _plaid_api_exception(
         error_message="invalid public_token"
@@ -186,8 +355,17 @@ def test_exchange_public_token_returns_502_on_plaid_api_failure(client, mock_pla
     assert "invalid public_token" in response.json()["detail"]
 
 
-def _seed_plaid_item(db_session, user, *, item_id="item-abc123", cursor=None) -> PlaidItem:
-    item = PlaidItem(user_id=user.id, item_id=item_id, access_token="access-sandbox-abc123", cursor=cursor)
+def _seed_plaid_item(
+    db_session, user, *, item_id="item-abc123", cursor=None, institution_id=None, institution_name=None
+) -> PlaidItem:
+    item = PlaidItem(
+        user_id=user.id,
+        item_id=item_id,
+        access_token="access-sandbox-abc123",
+        cursor=cursor,
+        institution_id=institution_id,
+        institution_name=institution_name,
+    )
     db_session.add(item)
     db_session.flush()
     return item

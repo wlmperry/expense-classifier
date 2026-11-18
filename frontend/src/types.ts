@@ -75,8 +75,17 @@ export type ExpenseCreate = Omit<Expense, "id" | "category" | "confidence" | "ca
 // ExpenseCreate.
 export type ExpenseUpdate = Partial<Omit<Expense, "id" | "category" | "confidence" | "category_source">>
 
-export interface PlaidItemStatusResponse {
-    item_id: string | null
+// One linked bank, as GET /plaid/items lists it. institution_name is null
+// only if the backend couldn't ask Plaid for it yet.
+export interface PlaidItemSummary {
+    item_id: string
+    institution_name: string | null
+}
+
+// Which bank the user picked in Plaid Link, from onSuccess's metadata.
+export interface PlaidInstitution {
+    institution_id: string
+    name: string
 }
 
 export interface PlaidLinkTokenResponse {

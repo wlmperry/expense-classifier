@@ -960,13 +960,47 @@ select:focus-visible,
   cursor: pointer;
 }
 
-/* Connect bank sits in the header; its messages wrap beneath the button. */
-.connect-bank {
+/* Bank accounts card at the top of the Transactions tab (Issue #60). */
+.bank-card {
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.bank-card__header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bank-card .message {
+  margin: 0;
+}
+
+.bank-card__empty {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.bank-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bank-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border-soft);
+}
+
+.bank-list__name {
+  font-weight: 600;
 }
 
 /* Readable by screen readers, invisible on screen. */
@@ -994,10 +1028,6 @@ select:focus-visible,
 
   .page-title h1 {
     font-size: 32px;
-  }
-
-  .connect-bank {
-    justify-content: flex-start;
   }
 
   /* Category and amount on the first line, the bar full-width under them. */

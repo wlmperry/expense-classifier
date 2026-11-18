@@ -9,6 +9,7 @@ from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from plaid.exceptions import ApiException
 from plaid.model.country_code import CountryCode
+from plaid.model.item_get_request import ItemGetRequest
 from plaid.model.item_public_token_exchange_request import (
     ItemPublicTokenExchangeRequest,
 )
@@ -44,7 +45,7 @@ from app.schemas import (
     LoginRequest,
     PlaidExchangePublicTokenRequest,
     PlaidExchangePublicTokenResponse,
-    PlaidItemStatusResponse,
+    PlaidItemSummary,
     PlaidLinkTokenResponse,
     PlaidSandboxPublicTokenResponse,
     PlaidSyncResponse,
@@ -370,29 +371,78 @@ def delete_expense(
     db.commit()
 
 
-@app.get("/plaid/item")
-def get_plaid_item_status(
-    user: User = Depends(get_current_user), db: Session = Depends(get_db)
-) -> PlaidItemStatusResponse:
-    """Report whether the current user already has a bank linked, so the
-    frontend can disable Connect bank instead of letting a second Link
-    session run.
+_DUPLICATE_BANK_DETAIL = "This bank is already connected to your account"
 
-    This matters because a repeat Link session mints a brand-new item_id
-    with its own fresh transaction_ids -- exchange_public_token's
-    idempotency check (same item_id already saved) never gets a chance to
-    fire, and dedup-by-transaction_id in the sync endpoint can't catch
-    transaction_ids it's never seen before. Each user is expected to have
-    at most one Item, so the user's first one is reported.
+
+def _fill_institution(db: Session, item: PlaidItem) -> None:
+    """Ask Plaid which bank an Item is and save it on the row.
+
+    Only Items linked before Issue #60 need this; newer ones get their
+    institution from Link's metadata when they're created. The name is
+    always saved, so the bank can be listed. The id is saved only if no
+    other Item of this user already has it: a user who linked the same bank
+    twice before #60 already has duplicate rows, and the unique constraint
+    on (user_id, institution_id) allows just one of them to carry the id.
+    One is enough for the duplicate check.
     """
-    item = (
-        db.execute(
-            select(PlaidItem).where(PlaidItem.user_id == user.id).order_by(PlaidItem.id)
-        )
-        .scalars()
-        .first()
+    request = ItemGetRequest(access_token=item.access_token)
+    response = _call_plaid(
+        lambda: get_plaid_client().item_get(request), action="look up Plaid item"
     )
-    return PlaidItemStatusResponse(item_id=item.item_id if item is not None else None)
+    institution_id = getattr(response.item, "institution_id", None)
+    item.institution_name = getattr(response.item, "institution_name", None)
+    if institution_id is None:
+        return
+    already_saved = db.execute(
+        select(PlaidItem.id).where(
+            PlaidItem.user_id == item.user_id,
+            PlaidItem.institution_id == institution_id,
+            PlaidItem.id != item.id,
+        )
+    ).first()
+    if already_saved is None:
+        item.institution_id = institution_id
+
+
+def _items_missing_institution(db: Session, user: User) -> list[PlaidItem]:
+    """The user's Items that have never had their institution looked up,
+    oldest first, so the oldest of any duplicates is the one that keeps
+    the institution id."""
+    return list(
+        db.execute(
+            select(PlaidItem)
+            .where(PlaidItem.user_id == user.id, PlaidItem.institution_name.is_(None))
+            .order_by(PlaidItem.id)
+        ).scalars()
+    )
+
+
+@app.get("/plaid/items")
+def list_plaid_items(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> list[PlaidItemSummary]:
+    """Every bank the current user has linked, oldest first.
+
+    Items linked before Issue #60 have their institution looked up from
+    Plaid here the first time, and saved, so later calls don't ask again.
+    If Plaid can't be reached, the bank is still listed, just without a
+    name, rather than failing the whole list.
+    """
+    for item in _items_missing_institution(db, user):
+        try:
+            _fill_institution(db, item)
+            db.flush()  # so the next item's duplicate check sees this one
+        except HTTPException:
+            continue
+    db.commit()
+
+    items = db.execute(
+        select(PlaidItem).where(PlaidItem.user_id == user.id).order_by(PlaidItem.id)
+    ).scalars()
+    return [
+        PlaidItemSummary(item_id=item.item_id, institution_name=item.institution_name)
+        for item in items
+    ]
 
 
 @app.post("/plaid/link-token")
@@ -457,7 +507,30 @@ def exchange_public_token(
     instead makes this endpoint idempotent rather than erroring. An Item
     already saved for a different user is a 409 rather than being handed
     over.
+
+    When Link's metadata names the bank (institution_id), a bank this user
+    has already linked is refused with a 409 before the token is exchanged,
+    following Plaid's guidance on preventing duplicate Items: linking the
+    same bank again would create a new item_id with new transaction ids,
+    and the sync would import every transaction a second time. Items from
+    before Issue #60 are looked up first so they count in that check.
     """
+    if payload.institution_id is not None:
+        for old_item in _items_missing_institution(db, user):
+            _fill_institution(db, old_item)
+            db.flush()
+        db.commit()
+        duplicate = db.execute(
+            select(PlaidItem.id).where(
+                PlaidItem.user_id == user.id,
+                PlaidItem.institution_id == payload.institution_id,
+            )
+        ).first()
+        if duplicate is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=_DUPLICATE_BANK_DETAIL
+            )
+
     request = ItemPublicTokenExchangeRequest(public_token=payload.public_token)
     response = _call_plaid(
         lambda: get_plaid_client().item_public_token_exchange(request),
@@ -476,10 +549,22 @@ def exchange_public_token(
         return PlaidExchangePublicTokenResponse(item_id=existing.item_id)
 
     item = PlaidItem(
-        user_id=user.id, item_id=response.item_id, access_token=response.access_token
+        user_id=user.id,
+        item_id=response.item_id,
+        access_token=response.access_token,
+        institution_id=payload.institution_id,
+        institution_name=payload.institution_name,
     )
     db.add(item)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        # Two requests linking the same bank at the same moment can both
+        # pass the check above; the unique constraint stops the second.
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=_DUPLICATE_BANK_DETAIL
+        ) from exc
     return PlaidExchangePublicTokenResponse(item_id=item.item_id)
 
 

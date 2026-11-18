@@ -229,13 +229,15 @@ class AuthResponse(BaseModel):
     user: UserRead
 
 
-class PlaidItemStatusResponse(BaseModel):
-    """Whether the current user already has a bank linked.
+class PlaidItemSummary(BaseModel):
+    """One bank the current user has linked, as GET /plaid/items lists it.
 
-    item_id is None when no Item has ever been linked.
+    institution_name is None only when Plaid couldn't be asked for it yet
+    (an Item linked before Issue #60, while Plaid was unreachable).
     """
 
-    item_id: str | None
+    item_id: str
+    institution_name: str | None
 
 
 class PlaidLinkTokenResponse(BaseModel):
@@ -260,6 +262,11 @@ class PlaidExchangePublicTokenRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     public_token: str
+    # Which bank the user just linked, from Link's onSuccess metadata
+    # (metadata.institution). Optional because Link can omit it; when it's
+    # present, the backend refuses a bank this user has already linked.
+    institution_id: str | None = Field(default=None, min_length=1, max_length=100)
+    institution_name: str | None = Field(default=None, min_length=1, max_length=200)
 
 
 class PlaidExchangePublicTokenResponse(BaseModel):

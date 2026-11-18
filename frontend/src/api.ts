@@ -7,7 +7,8 @@ import type {
     ExpenseCreate,
     ExpenseUpdate,
     PlaidExchangePublicTokenResponse,
-    PlaidItemStatusResponse,
+    PlaidInstitution,
+    PlaidItemSummary,
     PlaidLinkTokenResponse,
     PlaidSyncResponse,
     User,
@@ -101,10 +102,10 @@ export async function deleteExpense(id: number): Promise<void> {
     }
 }
 
-export async function getPlaidItemStatus(): Promise<PlaidItemStatusResponse> {
-    const response = await apiFetch("/plaid/item")
+export async function getPlaidItems(): Promise<PlaidItemSummary[]> {
+    const response = await apiFetch("/plaid/items")
     if (!response.ok) {
-        throw new Error(`Failed to fetch Plaid item status: ${response.status}`)
+        throw new Error(`Failed to load linked banks: ${response.status}`)
     }
     return response.json()
 }
@@ -117,14 +118,25 @@ export async function createPlaidLinkToken(): Promise<PlaidLinkTokenResponse> {
     return response.json()
 }
 
+// institution comes from Link's metadata; the backend uses its id to refuse
+// a bank this user has already linked (a 409, whose message is shown as is).
 export async function exchangePublicToken(
     publicToken: string,
+    institution: PlaidInstitution | null,
 ): Promise<PlaidExchangePublicTokenResponse> {
     const response = await apiFetch("/plaid/exchange-public-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ public_token: publicToken }),
+        body: JSON.stringify({
+            public_token: publicToken,
+            institution_id: institution?.institution_id ?? null,
+            institution_name: institution?.name ?? null,
+        }),
     })
+    if (response.status === 409) {
+        const body: { detail?: string } | null = await response.json().catch(() => null)
+        throw new Error(body?.detail ?? "This bank is already connected.")
+    }
     if (!response.ok) {
         throw new Error(`Failed to link bank account: ${response.status}`)
     }

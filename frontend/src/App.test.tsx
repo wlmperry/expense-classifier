@@ -2,12 +2,16 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
+// The Bank accounts card on the Transactions tab makes its own /plaid/*
+// requests and has its own tests (BankAccounts.test.tsx). It's replaced
+// here so each test's fetch stub only has to answer /expenses.
+vi.mock('./BankAccounts', () => ({ default: () => null }))
+
 const testUser = { id: 1, email: 'test-user@example.com' }
 
-// ConnectBank fetches its own link token lazily (on click), but a couple of
-// tests below click into an edit/save flow that can race with it. Routing
-// any such call to a harmless, always-successful response keeps each test's
-// fetch stub focused on the /expenses behavior it actually means to test.
+// Answers any /plaid/ request with a harmless success. Since Issue #60 the
+// bank card is mocked out above, so nothing here calls Plaid; this is kept
+// as a safety net so a stray request can't break an /expenses test.
 function stubPlaidLinkToken(url: string) {
   if (!url.includes('/plaid/')) {
     return null

@@ -143,9 +143,23 @@ class PlaidItem(Base):
     later call for this connection -- there is no way around storing it.
     cursor tracks transactions_sync's position so a later sync only pulls
     what's new instead of re-fetching everything.
+
+    institution_id and institution_name say which bank this is (Issue #60).
+    A user may link several banks, but not the same bank twice: a second
+    link makes Plaid issue a new item_id with new transaction ids, so the
+    sync's duplicate check couldn't recognize the repeats. The unique
+    constraint on (user_id, institution_id) enforces that in the database.
+    Both columns are null for Items linked before Issue #60 until the
+    backend fills them in from Plaid; Postgres treats nulls as distinct,
+    so those rows never conflict with each other.
     """
 
     __tablename__ = "plaid_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "institution_id", name="uq_plaid_items_user_id_institution_id"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(
@@ -154,3 +168,5 @@ class PlaidItem(Base):
     item_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     access_token: Mapped[str] = mapped_column(String, nullable=False)
     cursor: Mapped[str | None] = mapped_column(String, nullable=True)
+    institution_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    institution_name: Mapped[str | None] = mapped_column(String, nullable=True)
