@@ -102,12 +102,16 @@ def test_another_users_expense_looks_the_same_as_a_missing_one(client, db_sessio
 # --- Plaid ---
 
 
-def test_item_status_ignores_another_users_linked_bank(client, db_session, other_user):
+def test_bank_list_ignores_another_users_linked_bank(
+    client, db_session, other_user, mock_plaid_client
+):
     _add_plaid_item(db_session, other_user, "item-theirs")
 
-    response = client.get("/plaid/item")
+    response = client.get("/plaid/items")
 
-    assert response.json() == {"item_id": None}
+    assert response.json() == []
+    # Their bank has no institution saved, but it isn't ours to look up.
+    mock_plaid_client.item_get.assert_not_called()
 
 
 def test_cannot_sync_another_users_bank(client, db_session, other_user, mock_plaid_client):
