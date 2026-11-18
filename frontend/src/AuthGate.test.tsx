@@ -8,7 +8,7 @@ const USER = { id: 1, email: 'dave@example.com' }
 type Route = { status: number; body?: unknown }
 
 // A fake backend: answers each "METHOD /path" with the given status and body.
-// Anything not listed gets a harmless 200, e.g. ConnectBank's /plaid/item check.
+// Anything not listed gets a harmless 200, e.g. the bank card's /plaid/items check.
 function stubBackend(routes: Record<string, Route>) {
   const fetchMock = vi.fn((url: string, init?: RequestInit) => {
     const path = new URL(url).pathname

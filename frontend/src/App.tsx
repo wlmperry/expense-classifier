@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { deleteExpense, fetchExpenses } from "./api"
+import BankAccounts from "./BankAccounts"
 import Brand from "./Brand"
-import ConnectBank from "./ConnectBank"
 import ExpenseForm from "./ExpenseForm"
 import Overview from "./Overview"
 import { localToday } from "./monthOverview"
@@ -94,7 +94,6 @@ function App({ user, onLogout }: AppProps) {
             ))}
           </nav>
           <div className="site-header__actions">
-            <ConnectBank onImported={handleImported} />
             <span className="site-header__user">{user.email}</span>
             <button className="button button--secondary" type="button" onClick={onLogout}>
               Log out
@@ -125,6 +124,8 @@ function App({ user, onLogout }: AppProps) {
             <SpendingPatterns expenses={expenses} />
           </>
         )}
+
+        {tab === "transactions" && <BankAccounts onImported={handleImported} />}
 
         {tab === "transactions" && (
           <div className="page-columns">
