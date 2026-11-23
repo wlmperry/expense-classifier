@@ -69,11 +69,13 @@ export type ExpenseCreate = Omit<Expense, "id" | "category" | "confidence" | "ca
 }
 
 // The shape sent to PATCH /expenses/{id}: only the fields the editing UI
-// actually changed. category isn't editable here yet -- that's a separate,
-// not-yet-built dropdown -- so it's left out entirely rather than typed as
-// always-optional-but-unused. confidence is never client-supplied, same as
-// ExpenseCreate.
-export type ExpenseUpdate = Partial<Omit<Expense, "id" | "category" | "confidence" | "category_source">>
+// actually changed. category is typed as Category (not Expense's plain
+// string) so only real categories can be sent. confidence and
+// category_source are never client-supplied; the backend clears them itself
+// when the category changes.
+export type ExpenseUpdate = Partial<
+  Omit<Expense, "id" | "category" | "confidence" | "category_source"> & { category: Category }
+>
 
 // One linked bank, as GET /plaid/items lists it. institution_name is null
 // only if the backend couldn't ask Plaid for it yet.

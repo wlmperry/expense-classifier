@@ -24,8 +24,8 @@ function formValuesFor(expense: Expense | null | undefined): ExpenseCreate {
 
 // Only the fields that actually differ from the row being edited are sent,
 // matching PATCH /expenses/{id}'s "an omitted field means unchanged" contract.
-// Fixed to these four keys (not all of ExpenseCreate): category isn't
-// editable here, and formValuesFor() never puts one in `current` anyway.
+// Fixed to these four text keys; category is compared separately in
+// handleUpdateSubmit because it has its own state.
 const EDITABLE_FIELDS = ["merchant", "description", "amount", "expense_date"] as const
 
 function changedFields(initial: ExpenseCreate, current: ExpenseCreate): ExpenseUpdate {
@@ -55,10 +55,12 @@ function ExpenseForm({ expenseToEdit, onCreated, onUpdated, onCancelEdit }: Expe
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<Expense | null>(null)
-  // Create mode only -- editing a category isn't in scope here yet. "" means
-  // "auto-detect": left off the request entirely so the backend's classifier
-  // picks one, same as never touching this dropdown at all.
-  const [category, setCategory] = useState<Category | "">("")
+  // Create mode starts at "" meaning "auto-detect": left off the request
+  // entirely so the backend's classifier picks one. Edit mode starts at the
+  // expense's current category (the cast is safe because the backend only
+  // ever stores names from CATEGORIES).
+  const initialCategory = (expenseToEdit?.category ?? "") as Category | ""
+  const [category, setCategory] = useState<Category | "">(initialCategory)
 
   function updateField(field: keyof ExpenseCreate, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -66,6 +68,12 @@ function ExpenseForm({ expenseToEdit, onCreated, onUpdated, onCancelEdit }: Expe
 
   async function handleUpdateSubmit(expense: Expense) {
     const changes = changedFields(initialValues, form)
+    // category lives in its own state (it isn't one of ExpenseCreate's text
+    // fields), so it's compared separately. Edit mode has no "" option, so a
+    // changed category is always a real one.
+    if (category !== initialCategory && category !== "") {
+      changes.category = category
+    }
     if (Object.keys(changes).length === 0) {
       // Nothing actually changed -- there's nothing to PATCH, and sending an
       // empty body would just get a 422 back for no reason.
@@ -159,22 +167,21 @@ function ExpenseForm({ expenseToEdit, onCreated, onUpdated, onCancelEdit }: Expe
           />
         </label>
       </div>
-      {!isEditing && (
-        <label>
-          Category
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as Category | "")}
-          >
-            <option value="">Auto-detect</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <label>
+        Category
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value as Category | "")}
+        >
+          {/* PATCH never re-runs the classifier, so auto-detect is create-only. */}
+          {!isEditing && <option value="">Auto-detect</option>}
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
       <div className="expense-form__actions">
         <button className="button button--primary" type="submit" disabled={submitting}>
           {submitting ? "Saving..." : isEditing ? "Save" : "Add expense"}

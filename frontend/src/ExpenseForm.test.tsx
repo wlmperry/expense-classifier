@@ -224,7 +224,30 @@ describe('ExpenseForm editing', () => {
     expect(screen.getByLabelText(/description/i)).toHaveValue('Fuel')
     expect(screen.getByLabelText(/amount/i)).toHaveValue('42.00')
     expect(screen.getByLabelText(/date/i)).toHaveValue('2026-09-02')
-    expect(screen.queryByLabelText(/category/i)).not.toBeInTheDocument()
+    expect(screen.getByLabelText(/category/i)).toHaveValue('Gas & Fuel')
+  })
+
+  it('does not offer auto-detect when editing', () => {
+    render(<ExpenseForm {...noop} expenseToEdit={EXISTING_EXPENSE} />)
+
+    expect(screen.queryByRole('option', { name: /auto-detect/i })).not.toBeInTheDocument()
+  })
+
+  it('PATCHes only the category when only the category was changed', async () => {
+    const fetchMock = stubFetch({
+      ok: true,
+      body: { ...EXISTING_EXPENSE, category: 'Travel' },
+    })
+    render(<ExpenseForm {...noop} expenseToEdit={EXISTING_EXPENSE} />)
+
+    fireEvent.change(screen.getByLabelText(/category/i), { target: { value: 'Travel' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe(`${API_BASE_URL}/expenses/9`)
+    expect(init.method).toBe('PATCH')
+    expect(init.body).toBe('{"category":"Travel"}')
   })
 
   it('PATCHes only the fields that were actually changed', async () => {
